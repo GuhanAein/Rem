@@ -68,8 +68,8 @@ class ScreenshotTest {
         StaticTheme(false) { HomeContent(buildHomeState(sampleReminders(today), done, now, SmartList.TODAY, null, false)) }
     }
 
-    @Test fun home_dark() = captureRoboImage("$out/home_dark.png") {
-        StaticTheme(true) { HomeContent(buildHomeState(sampleReminders(today), done, now, SmartList.TODAY, null, false)) }
+    @Test fun home_collections() = captureRoboImage("$out/home_all.png") {
+        StaticTheme(true) { HomeContent(buildHomeState(sampleReminders(today), done, now, SmartList.ALL, null, false), listState = androidx.compose.foundation.lazy.LazyListState(firstVisibleItemIndex = 9)) }
     }
 
     @Test fun home_scheduled() = captureRoboImage("$out/home_scheduled.png") {
@@ -147,7 +147,7 @@ class ScreenshotTest {
 
     @Composable
     private fun Sheet(content: @Composable () -> Unit) {
-        Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.35f))) {
+        Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.6f))) {
             Box(
                 Modifier.align(Alignment.BottomCenter).clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
                     .background(Rem.colors.card).padding(top = 28.dp),

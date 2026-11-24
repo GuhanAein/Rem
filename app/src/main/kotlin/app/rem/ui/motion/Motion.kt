@@ -116,3 +116,19 @@ fun Modifier.sharedBounds(key: String): Modifier = composed {
 /** True unless the user turned animations off in Android settings. */
 fun systemAnimationsEnabled(context: android.content.Context): Boolean =
     android.provider.Settings.Global.getFloat(context.contentResolver, android.provider.Settings.Global.ANIMATOR_DURATION_SCALE, 1f) > 0f
+
+/** Crisp, purposeful haptics: a light tick for selection, a firmer confirm for completing things. */
+class Haptics(private val view: android.view.View) {
+    fun tick() { view.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK) }
+    fun confirm() {
+        val c = if (android.os.Build.VERSION.SDK_INT >= 30) android.view.HapticFeedbackConstants.CONFIRM else android.view.HapticFeedbackConstants.LONG_PRESS
+        view.performHapticFeedback(c)
+    }
+    fun heavy() { view.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS) }
+}
+
+@Composable
+fun rememberHaptics(): Haptics {
+    val view = androidx.compose.ui.platform.LocalView.current
+    return remember(view) { Haptics(view) }
+}

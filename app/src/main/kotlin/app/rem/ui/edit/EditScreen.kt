@@ -29,6 +29,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Alarm
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.Flag
+import androidx.compose.material.icons.rounded.Event
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.rounded.Payments
@@ -67,6 +68,7 @@ import app.rem.core.model.Priority
 import app.rem.core.recurrence.Freq
 import app.rem.core.recurrence.describe
 import app.rem.ui.components.CategoryGlyph
+import app.rem.ui.components.color
 import app.rem.ui.components.GroupedCard
 import app.rem.ui.components.OptionSheet
 import app.rem.ui.components.RowDivider
@@ -154,10 +156,10 @@ fun EditContent(
     ) {
         // Navigation bar: Cancel · Details · Done
         Row(Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 8.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-            TextButton(onClick = onBack) { Text("Cancel", style = MaterialTheme.typography.bodyLarge, color = c.accent) }
-            Text(if (state.isNew) "New Reminder" else "Details", style = MaterialTheme.typography.titleMedium, color = c.label, textAlign = TextAlign.Center, modifier = Modifier.weight(1f))
+            TextButton(onClick = onBack) { Text("Cancel", style = MaterialTheme.typography.bodyLarge, color = c.secondaryLabel) }
+            Text((if (state.isNew) "New reminder" else "Details").uppercase(), style = MaterialTheme.typography.labelSmall, color = c.secondaryLabel, textAlign = TextAlign.Center, modifier = Modifier.weight(1f))
             TextButton(onClick = onSave, enabled = state.canSave) {
-                Text(if (state.isNew) "Add" else "Done", style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold), color = if (state.canSave) c.accent else c.tertiaryLabel)
+                Text(if (state.isNew) "Add" else "Save", style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold), color = if (state.canSave) c.gold else c.tertiaryLabel)
             }
         }
 
@@ -167,10 +169,28 @@ fun EditContent(
             modifier = Modifier.fillMaxSize().imePadding(),
         ) {
             item {
+                Row(Modifier.padding(start = 4.dp, top = 6.dp, bottom = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                    CategoryGlyph(state.category, size = 30.dp, selected = true)
+                    Spacer(Modifier.width(10.dp))
+                    Text(state.category.label.uppercase(), style = MaterialTheme.typography.labelSmall, color = state.category.color)
+                }
+            }
+            item {
+                Box(Modifier.fillMaxWidth().padding(horizontal = 4.dp)) {
+                    if (state.title.isEmpty()) Text("Title", style = MaterialTheme.typography.displaySmall, color = c.tertiaryLabel)
+                    BasicTextField(
+                        value = state.title,
+                        onValueChange = { v -> onChange { it.copy(title = v) } },
+                        textStyle = MaterialTheme.typography.displaySmall.copy(color = c.label),
+                        cursorBrush = SolidColor(c.gold),
+                        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            }
+            item {
                 GroupedCard {
-                    Field(state.title, "Title", MaterialTheme.typography.bodyLarge) { v -> onChange { it.copy(title = v) } }
-                    RowDivider()
-                    Field(state.notes, "Notes", MaterialTheme.typography.bodyLarge, minHeight = 72) { v -> onChange { it.copy(notes = v) } }
+                    Field(state.notes, "Notes", MaterialTheme.typography.bodyLarge, minHeight = 64) { v -> onChange { it.copy(notes = v) } }
                     if (state.category == Category.BILL || state.amount.isNotBlank() || showAmount) {
                         RowDivider()
                         Field(state.amount, "Amount", MaterialTheme.typography.bodyLarge) { v -> onChange { it.copy(amount = v) } }
@@ -183,15 +203,15 @@ fun EditContent(
                     SwitchRow(
                         "Date", state.date != null,
                         onChange = { on -> onChange { it.copy(date = if (on) today else null, repeat = if (on) it.repeat else RepeatForm()) } },
-                        icon = Icons.Rounded.CalendarMonth, iconColor = c.danger,
+                        icon = Icons.Rounded.Event, iconColor = c.secondaryLabel,
                         subtitle = state.date?.let { "${formatDay(it, today)}, ${formatTime(state.time)}" },
                     )
                     AnimatedVisibility(state.date != null, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
                         Column {
-                            RowDivider(56.dp)
-                            SettingRow("Day", value = state.date?.let { formatDay(it, today) } ?: "", onClick = { showDate = true }, valueColor = c.accent, showChevron = false)
-                            RowDivider(56.dp)
-                            SettingRow("Time", icon = Icons.Rounded.Schedule, iconColor = c.accent, value = formatTime(state.time), valueColor = c.accent, onClick = { showTime = true }, showChevron = false)
+                            RowDivider(54.dp)
+                            SettingRow("Day", icon = Icons.Rounded.CalendarMonth, iconColor = c.secondaryLabel, value = state.date?.let { formatDay(it, today) } ?: "", onClick = { showDate = true }, valueColor = c.gold, showChevron = false)
+                            RowDivider(54.dp)
+                            SettingRow("Time", icon = Icons.Rounded.Schedule, iconColor = c.secondaryLabel, value = formatTime(state.time), valueColor = c.gold, onClick = { showTime = true }, showChevron = false)
                         }
                     }
                 }
@@ -201,25 +221,25 @@ fun EditContent(
                 GroupedCard {
                     val preset = state.repeat.preset()
                     SettingRow(
-                        "Repeat", icon = Icons.Rounded.Repeat, iconColor = Color(0xFF6B6B72),
+                        "Repeat", icon = Icons.Rounded.Repeat, iconColor = c.secondaryLabel,
                         value = preset?.label ?: state.repeat.toRule(state.date)?.describe() ?: "Never",
                         onClick = { sheet = "repeat" },
                     )
-                    RowDivider(56.dp)
+                    RowDivider(54.dp)
                     SettingRow(
-                        "Alerts", icon = Icons.Rounded.Notifications, iconColor = c.danger,
+                        "Alerts", icon = Icons.Rounded.Notifications, iconColor = c.secondaryLabel,
                         value = state.alertOffsets.sorted().joinToString(", ") { describeOffset(it) },
                         onClick = { sheet = "alerts" },
                     )
-                    RowDivider(56.dp)
+                    RowDivider(54.dp)
                     SwitchRow(
                         "Ring Like an Alarm", state.style == AlertStyle.ALARM,
                         onChange = { on -> onChange { it.copy(style = if (on) AlertStyle.ALARM else AlertStyle.NOTIFICATION, nagMinutes = if (on) (it.nagMinutes ?: 5) else it.nagMinutes) } },
-                        icon = Icons.Rounded.Alarm, iconColor = c.warning,
+                        icon = Icons.Rounded.Alarm, iconColor = c.secondaryLabel,
                     )
-                    RowDivider(56.dp)
+                    RowDivider(54.dp)
                     SettingRow(
-                        "Keep Reminding", icon = Icons.Rounded.NotificationsActive, iconColor = Color(0xFF5E5CE6),
+                        "Keep Reminding", icon = Icons.Rounded.NotificationsActive, iconColor = c.secondaryLabel,
                         value = state.nagMinutes?.let { "Every $it min" } ?: "Off",
                         onClick = { sheet = "nag" },
                     )
@@ -234,12 +254,10 @@ fun EditContent(
                         icon = null,
                     )
                     RowDivider()
-                    Column(Modifier.padding(16.dp)) {
+                    Column(Modifier.padding(18.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(Modifier.size(28.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(7.dp)).background(c.warning), contentAlignment = Alignment.Center) {
-                                androidx.compose.material3.Icon(Icons.Rounded.Flag, null, tint = Color.White, modifier = Modifier.size(17.dp))
-                            }
-                            Spacer(Modifier.width(12.dp))
+                            androidx.compose.material3.Icon(Icons.Rounded.Flag, null, tint = c.secondaryLabel, modifier = Modifier.size(20.dp))
+                            Spacer(Modifier.width(16.dp))
                             Text("Priority", style = MaterialTheme.typography.bodyLarge, color = c.label)
                         }
                         Spacer(Modifier.height(12.dp))
@@ -252,7 +270,7 @@ fun EditContent(
             if (state.category != Category.BILL && state.amount.isBlank() && !showAmount) {
                 item {
                     GroupedCard {
-                        SettingRow("Add Amount", icon = Icons.Rounded.Payments, iconColor = c.success, onClick = { showAmount = true })
+                        SettingRow("Add Amount", icon = Icons.Rounded.Payments, iconColor = c.secondaryLabel, onClick = { showAmount = true })
                     }
                 }
             }

@@ -23,6 +23,7 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -171,79 +172,76 @@ fun AlarmContent(
     onDismiss: () -> Unit,
     animate: Boolean = true,
 ) {
-    val accent = reminder.category.color
-    // One gentle breathing ring around the glyph; nothing else moves.
+    val c = app.rem.ui.theme.Rem.colors
+    val tint = reminder.category.color
     val breathe = if (animate && LocalAmbientMotion.current) {
         val v by rememberInfiniteTransition(label = "breathe").animateFloat(
-            0f, 1f, infiniteRepeatable(tween(1600, easing = LinearEasing), RepeatMode.Reverse), label = "b",
+            0f, 1f, infiniteRepeatable(tween(2200, easing = LinearEasing), RepeatMode.Reverse), label = "b",
         )
         v
     } else 0.5f
+    val clock = formatTime(now.toLocalTime())
 
-    Box(Modifier.fillMaxSize().background(Color.Black)) {
+    Box(Modifier.fillMaxSize().background(c.canvas)) {
+        // A slow, warm breathing glow behind the clock: the only motion on screen.
+        androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
+            drawRect(
+                androidx.compose.ui.graphics.Brush.radialGradient(
+                    listOf(c.gold.copy(alpha = 0.06f + 0.06f * breathe), Color.Transparent),
+                    center = androidx.compose.ui.geometry.Offset(size.width / 2, size.height * 0.28f),
+                    radius = size.width * (0.8f + 0.1f * breathe),
+                ),
+            )
+        }
         Column(
-            Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(horizontal = 24.dp, vertical = 24.dp),
+            Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(horizontal = 24.dp, vertical = 20.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Spacer(Modifier.height(40.dp))
-            Text(formatLongDate(now.toLocalDate()), color = Color.White.copy(alpha = 0.6f), style = MaterialTheme.typography.titleMedium)
-            Text(formatTime(now.toLocalTime()), color = Color.White, fontSize = 76.sp, fontWeight = FontWeight.Thin, letterSpacing = (-2).sp)
-
-            Spacer(Modifier.weight(1f))
-            Box(Modifier.size(132.dp), contentAlignment = Alignment.Center) {
-                Box(
-                    Modifier.size(132.dp).scale(0.82f + 0.18f * breathe).graphicsLayer { alpha = 0.25f * (1f - breathe) + 0.1f }
-                        .clip(CircleShape).background(accent),
-                )
-                Box(Modifier.size(84.dp).clip(CircleShape).background(accent), contentAlignment = Alignment.Center) {
-                    Icon(reminder.category.icon, null, tint = Color.White, modifier = Modifier.size(42.dp))
-                }
+            Spacer(Modifier.height(48.dp))
+            Text(formatLongDate(now.toLocalDate()).uppercase(), style = MaterialTheme.typography.labelSmall, color = c.secondaryLabel)
+            Row(verticalAlignment = Alignment.Bottom) {
+                Text(clock.substringBefore(' '), color = c.label, fontSize = 112.sp, fontFamily = app.rem.ui.theme.Serif, letterSpacing = (-4).sp, lineHeight = 120.sp)
+                Text(clock.substringAfter(' ', ""), color = c.secondaryLabel, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 22.dp, start = 6.dp))
             }
-            Spacer(Modifier.height(28.dp))
-            Text(reminder.title, color = Color.White, style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center)
-            Spacer(Modifier.height(6.dp))
-            Text(
-                listOfNotNull(reminder.category.label, reminder.amount).joinToString(" \u00B7 "),
-                color = Color.White.copy(alpha = 0.55f),
-                style = MaterialTheme.typography.bodyLarge,
-            )
-            Spacer(Modifier.weight(1f))
 
-            val doneInteraction = androidx.compose.runtime.remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
-            Row(
-                Modifier
-                    .pressScale(doneInteraction)
-                    .fillMaxWidth()
-                    .height(58.dp)
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(Color.White)
-                    .clickable(doneInteraction, androidx.compose.material3.ripple(), role = Role.Button, onClickLabel = "Mark done", onClick = onDone),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(Icons.Rounded.Check, null, tint = Color.Black, modifier = Modifier.size(22.dp))
+            Spacer(Modifier.weight(1f))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(6.dp).clip(CircleShape).background(tint))
                 Spacer(Modifier.width(8.dp))
-                Text("Done", color = Color.Black, style = MaterialTheme.typography.titleMedium)
+                Text(reminder.category.label.uppercase(), style = MaterialTheme.typography.labelSmall, color = tint)
             }
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(12.dp))
+            Text(reminder.title, color = c.label, style = MaterialTheme.typography.displaySmall, textAlign = TextAlign.Center)
+            reminder.amount?.let {
+                Spacer(Modifier.height(6.dp))
+                Text(it, color = c.gold, style = MaterialTheme.typography.titleMedium)
+            }
+            if (reminder.notes.isNotBlank()) {
+                Spacer(Modifier.height(8.dp))
+                Text(reminder.notes, color = c.secondaryLabel, style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center)
+            }
+            Spacer(Modifier.weight(1f))
+
+            app.rem.ui.components.SlideToConfirm("Slide to complete", onConfirm = onDone)
+            Spacer(Modifier.height(14.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
                 listOf(SnoozePreset.MIN_5, SnoozePreset.MIN_15, SnoozePreset.HOUR_1).forEach { p ->
                     Text(
                         p.label,
-                        color = Color.White,
-                        style = MaterialTheme.typography.titleSmall,
+                        color = c.label,
+                        style = MaterialTheme.typography.labelLarge,
                         textAlign = TextAlign.Center,
                         modifier = Modifier
                             .weight(1f)
-                            .clip(RoundedCornerShape(14.dp))
-                            .background(Color(0xFF1C1C1E))
+                            .clip(RoundedCornerShape(24.dp))
+                            .border(1.dp, c.separator, RoundedCornerShape(24.dp))
                             .clickable(role = Role.Button) { onSnooze(p) }
-                            .padding(vertical = 15.dp),
+                            .padding(vertical = 14.dp),
                     )
                 }
             }
-            Spacer(Modifier.height(6.dp))
-            TextButton(onClick = onDismiss) { Text("Dismiss", color = Color.White.copy(alpha = 0.55f)) }
+            Spacer(Modifier.height(8.dp))
+            TextButton(onClick = onDismiss) { Text("Dismiss", color = c.secondaryLabel) }
         }
     }
 }

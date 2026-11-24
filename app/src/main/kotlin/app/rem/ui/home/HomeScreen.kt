@@ -1,14 +1,19 @@
 package app.rem.ui.home
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.VisibilityThreshold
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -32,22 +37,19 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.AddCircle
+import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Bedtime
-import androidx.compose.material.icons.rounded.CalendarMonth
-import androidx.compose.material.icons.rounded.CalendarToday
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.ErrorOutline
-import androidx.compose.material.icons.rounded.Inbox
 import androidx.compose.material.icons.rounded.Mic
-import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.Snooze
 import androidx.compose.material.icons.rounded.Timer
+import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.WbSunny
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -68,11 +70,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -81,18 +84,21 @@ import app.rem.core.model.Category
 import app.rem.core.model.Reminder
 import app.rem.core.scheduling.SnoozePreset
 import app.rem.ui.add.QuickAddSheet
+import app.rem.ui.components.Caption
 import app.rem.ui.components.CategoryGlyph
-import app.rem.ui.components.GroupCaption
 import app.rem.ui.components.GroupedCard
 import app.rem.ui.components.OptionSheet
 import app.rem.ui.components.ProgressRing
 import app.rem.ui.components.ReminderCardModel
 import app.rem.ui.components.ReminderRow
 import app.rem.ui.components.RowDivider
+import app.rem.ui.components.SegmentedControl
 import app.rem.ui.components.SettingRow
 import app.rem.ui.components.color
+import app.rem.ui.components.noirSurface
 import app.rem.ui.motion.AnimatedCounter
 import app.rem.ui.motion.pressScale
+import app.rem.ui.motion.rememberHaptics
 import app.rem.ui.motion.staggeredEntrance
 import app.rem.ui.theme.Rem
 import app.rem.ui.voice.VoiceSheet
@@ -173,15 +179,14 @@ fun HomeScreen(
     }
 
     snoozeTarget?.let { id ->
-        val options = listOf(
-            SnoozePreset.MIN_15 to "In 15 minutes",
-            SnoozePreset.HOUR_1 to "In 1 hour",
-            SnoozePreset.TONIGHT to "Tonight, 8:00 PM",
-            SnoozePreset.TOMORROW_MORNING to "Tomorrow, 9:00 AM",
-        )
         OptionSheet(
-            title = "Snooze",
-            options = options,
+            title = "Snooze until",
+            options = listOf(
+                SnoozePreset.MIN_15 to "In 15 minutes",
+                SnoozePreset.HOUR_1 to "In an hour",
+                SnoozePreset.TONIGHT to "Tonight at 8",
+                SnoozePreset.TOMORROW_MORNING to "Tomorrow at 9",
+            ),
             isSelected = { false },
             onSelect = { preset -> viewModel.snooze(id, preset); snoozeTarget = null },
             onDismiss = { snoozeTarget = null },
@@ -193,22 +198,13 @@ fun HomeScreen(
                             SnoozePreset.TOMORROW_MORNING -> Icons.Rounded.WbSunny
                             else -> Icons.Rounded.Timer
                         },
-                        null, tint = Rem.colors.accent, modifier = Modifier.size(22.dp),
+                        null, tint = Rem.colors.gold, modifier = Modifier.size(20.dp),
                     )
                 }
             },
         )
     }
 }
-
-private data class TileStyle(val icon: ImageVector, val color: @Composable () -> Color)
-
-private val TILE_STYLES = mapOf(
-    SmartList.TODAY to TileStyle(Icons.Rounded.CalendarToday) { Rem.colors.accent },
-    SmartList.SCHEDULED to TileStyle(Icons.Rounded.CalendarMonth) { Rem.colors.danger },
-    SmartList.OVERDUE to TileStyle(Icons.Rounded.ErrorOutline) { Rem.colors.warning },
-    SmartList.ALL to TileStyle(Icons.Rounded.Inbox) { Color(0xFF6B6B72) },
-)
 
 @Composable
 fun HomeContent(
@@ -226,193 +222,190 @@ fun HomeContent(
 ) {
     val seen = remember { mutableSetOf<Any>() }
     val c = Rem.colors
-    val scrolled by remember { derivedStateOf { listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 120 } }
+    val scrolled by remember { derivedStateOf { listState.firstVisibleItemIndex > 1 || (listState.firstVisibleItemIndex == 1 && listState.firstVisibleItemScrollOffset > 0) } }
+    val lists = SmartList.entries
 
     Box(Modifier.fillMaxSize().background(c.canvas)) {
+        // A faint warm glow at the top gives the canvas depth without decoration.
+        Canvas(Modifier.fillMaxWidth().height(420.dp)) {
+            drawRect(
+                Brush.radialGradient(
+                    listOf(Color(0xFFD9BC83).copy(alpha = 0.07f), Color.Transparent),
+                    center = Offset(size.width * 0.85f, 0f), radius = size.width * 1.1f,
+                ),
+            )
+        }
+
         LazyColumn(
             state = listState,
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 110.dp),
+            contentPadding = PaddingValues(start = 18.dp, end = 18.dp, bottom = 132.dp),
         ) {
-            item(key = "header") { Header(state, onSetup) }
-            item(key = "tiles") { Tiles(state, onSelectList, Modifier.staggeredEntrance("tiles", 1, seen)) }
-            item(key = "title") {
-                ListTitle(state, onClearCategory = { onSelectCategory(null) })
+            item(key = "header") { Header(state, onSetup, Modifier.staggeredEntrance("header", 0, seen)) }
+            item(key = "seg") {
+                SegmentedControl(
+                    options = lists.map { it.title },
+                    counts = lists.map { state.counts[it] },
+                    selected = lists.indexOf(state.list),
+                    onSelect = { onSelectList(lists[it]) },
+                    modifier = Modifier.padding(top = 28.dp).staggeredEntrance("seg", 1, seen),
+                )
             }
-            if (state.needsSetup) {
-                item(key = "setup") {
-                    GroupedCard(Modifier.padding(top = 8.dp).animateItem()) {
-                        SettingRow(
-                            "Finish setup so reminders are never late",
-                            icon = Icons.Rounded.Shield, iconColor = c.warning, onClick = onSetup,
-                        )
+            if (state.selectedCategory != null) {
+                item(key = "filter") {
+                    Row(
+                        Modifier.padding(top = 14.dp).clip(RoundedCornerShape(50)).border(1.dp, c.separator, RoundedCornerShape(50))
+                            .clickable { onSelectCategory(null) }.padding(horizontal = 12.dp, vertical = 7.dp).animateItem(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Box(Modifier.size(7.dp).clip(CircleShape).background(state.selectedCategory.color))
+                        Spacer(Modifier.width(8.dp))
+                        Text(state.selectedCategory.label, style = MaterialTheme.typography.labelMedium, color = c.label)
+                        Spacer(Modifier.width(8.dp))
+                        Icon(Icons.Rounded.Close, "Clear filter", tint = c.secondaryLabel, modifier = Modifier.size(14.dp))
                     }
                 }
             }
-            if (state.isEmpty) item(key = "empty") { EmptyState(state, onAdd, onVoice) }
+            if (state.needsSetup) {
+                item(key = "setup") {
+                    GroupedCard(Modifier.padding(top = 18.dp).animateItem()) {
+                        SettingRow("Finish setup so Rem is never late", icon = Icons.Rounded.Shield, iconColor = c.warning, onClick = onSetup)
+                    }
+                }
+            }
+            if (state.isEmpty) item(key = "empty") { EmptyState(state, onVoice, Modifier.staggeredEntrance("empty", 2, seen)) }
 
+            var order = 2
             state.sections.forEach { section ->
                 item(key = "cap-${section.key}") {
-                    Text(
-                        section.title,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = if (section.danger) c.danger else c.label,
-                        modifier = Modifier.padding(start = 4.dp, top = 22.dp, bottom = 8.dp).animateItem(),
-                    )
+                    Caption(section.title, Modifier.animateItem(), count = section.items.size, color = if (section.danger) c.danger else c.secondaryLabel)
                 }
                 itemsIndexed(section.items, key = { _, it -> "r-${it.id}" }) { i, model ->
                     val first = i == 0
                     val last = i == section.items.lastIndex
                     val shape = RoundedCornerShape(
-                        topStart = if (first) 14.dp else 0.dp, topEnd = if (first) 14.dp else 0.dp,
-                        bottomStart = if (last) 14.dp else 0.dp, bottomEnd = if (last) 14.dp else 0.dp,
+                        topStart = if (first) 22.dp else 0.dp, topEnd = if (first) 22.dp else 0.dp,
+                        bottomStart = if (last) 22.dp else 0.dp, bottomEnd = if (last) 22.dp else 0.dp,
                     )
                     Column(
                         Modifier
                             .animateItem(
-                                fadeInSpec = tween(200),
+                                fadeInSpec = tween(220),
                                 placementSpec = spring(dampingRatio = 0.9f, stiffness = Spring.StiffnessMediumLow, visibilityThreshold = IntOffset.VisibilityThreshold),
-                                fadeOutSpec = tween(180),
+                                fadeOutSpec = tween(200),
                             )
-                            .staggeredEntrance("r-${model.id}", 2 + i, seen)
-                            .clip(shape),
+                            .staggeredEntrance("r-${model.id}", order + i, seen)
+                            .clip(shape)
+                            .background(c.surface),
                     ) {
+                        if (first) Box(Modifier.fillMaxWidth().height(1.dp).background(Brush.horizontalGradient(listOf(Color.Transparent, Color.White.copy(alpha = 0.09f), Color.Transparent))))
                         SwipeRow(model, onOpen = { onOpen(model.id) }, onComplete = { onComplete(model.id) }, onSnooze = { onSnooze(model.id) })
-                        if (!last) Box(Modifier.background(c.card)) { RowDivider(48.dp) }
+                        if (!last) RowDivider(56.dp)
                     }
                 }
+                order += section.items.size
             }
 
-            if (state.categories.size > 1) {
-                item(key = "cat-cap") { GroupCaption("Categories", Modifier.padding(start = 0.dp).animateItem()) }
-                item(key = "cats") {
-                    GroupedCard(Modifier.animateItem()) {
-                        state.categories.forEachIndexed { i, (cat, count) ->
-                            if (i > 0) RowDivider(56.dp)
-                            CategoryRow(cat, count, selected = cat == state.selectedCategory) { onSelectCategory(cat) }
-                        }
-                    }
-                }
+            if (state.categories.size > 1 && state.selectedCategory == null) {
+                item(key = "col-cap") { Caption("Collections", Modifier.padding(top = 8.dp).animateItem()) }
+                item(key = "collections") { Collections(state, onSelectCategory, Modifier.animateItem()) }
             }
         }
 
-        // Compact title that appears once the large title scrolls away.
-        AnimatedVisibility(scrolled, enter = fadeIn(tween(150)), exit = fadeOut(tween(150))) {
-            Column(Modifier.fillMaxWidth().background(c.canvas.copy(alpha = 0.96f)).statusBarsPadding()) {
+        // Compact title once the hero scrolls away.
+        AnimatedVisibility(scrolled, enter = fadeIn(tween(160)), exit = fadeOut(tween(160))) {
+            Column(Modifier.fillMaxWidth().background(c.canvas.copy(alpha = 0.97f)).statusBarsPadding()) {
                 Text(
                     state.selectedCategory?.label ?: state.list.title,
-                    style = MaterialTheme.typography.titleMedium, color = c.label, textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                    style = MaterialTheme.typography.headlineSmall, color = c.label, textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp),
                 )
                 Box(Modifier.fillMaxWidth().height(0.5.dp).background(c.separator))
             }
         }
 
-        BottomBar(onAdd, onVoice, Modifier.align(Alignment.BottomCenter))
-        SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 72.dp))
-    }
-}
-
-@Composable
-private fun Header(state: HomeUiState, onSetup: () -> Unit) {
-    val c = Rem.colors
-    Row(Modifier.fillMaxWidth().statusBarsPadding().padding(top = 8.dp, start = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(state.dateLabel, style = MaterialTheme.typography.labelMedium, color = c.secondaryLabel, modifier = Modifier.weight(1f))
-        Box(
-            Modifier.size(36.dp).clip(CircleShape).background(c.fill).clickable(role = Role.Button, onClickLabel = "Settings", onClick = onSetup),
-            contentAlignment = Alignment.Center,
-        ) { Icon(Icons.Rounded.MoreHoriz, "Settings", tint = c.accent, modifier = Modifier.size(22.dp)) }
-    }
-}
-
-@Composable
-private fun Tiles(state: HomeUiState, onSelect: (SmartList) -> Unit, modifier: Modifier = Modifier) {
-    Column(modifier.padding(top = 14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        listOf(SmartList.TODAY to SmartList.SCHEDULED, SmartList.OVERDUE to SmartList.ALL).forEach { (a, b) ->
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Tile(a, state.counts[a] ?: 0, state.list == a, Modifier.weight(1f)) { onSelect(a) }
-                Tile(b, state.counts[b] ?: 0, state.list == b, Modifier.weight(1f)) { onSelect(b) }
-            }
-        }
-    }
-}
-
-@Composable
-private fun Tile(list: SmartList, count: Int, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
-    val style = TILE_STYLES.getValue(list)
-    val tint = style.color()
-    val c = Rem.colors
-    val bg by animateColorAsState(if (selected) tint else c.card, tween(200), label = "tile")
-    val fg = if (selected) Color.White else c.label
-    val interaction = remember { MutableInteractionSource() }
-    Column(
-        modifier
-            .pressScale(interaction)
-            .clip(RoundedCornerShape(14.dp))
-            .background(bg)
-            .clickable(interaction, ripple(), role = Role.Tab, onClick = onClick)
-            .padding(12.dp),
-    ) {
-        Row(verticalAlignment = Alignment.Top) {
-            Box(
-                Modifier.size(30.dp).clip(CircleShape).background(if (selected) Color.White else tint),
-                contentAlignment = Alignment.Center,
-            ) { Icon(style.icon, null, tint = if (selected) tint else Color.White, modifier = Modifier.size(17.dp)) }
-            Spacer(Modifier.weight(1f))
-            AnimatedCounter(count, MaterialTheme.typography.headlineMedium, fg)
-        }
-        Spacer(Modifier.height(6.dp))
-        Text(list.title, style = MaterialTheme.typography.titleSmall, color = if (selected) Color.White else c.secondaryLabel)
-    }
-}
-
-@Composable
-private fun ListTitle(state: HomeUiState, onClearCategory: () -> Unit) {
-    val c = Rem.colors
-    Column(Modifier.padding(start = 4.dp, top = 26.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                state.selectedCategory?.label ?: state.list.title,
-                style = MaterialTheme.typography.headlineLarge,
-                color = if (state.selectedCategory != null) state.selectedCategory.color else c.label,
-                modifier = Modifier.weight(1f),
+        Dock(onAdd, onVoice, Modifier.align(Alignment.BottomCenter))
+        SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 96.dp)) { data ->
+            Snackbar(
+                data,
+                shape = RoundedCornerShape(18.dp),
+                containerColor = c.ivory,
+                contentColor = c.onIvory,
+                actionColor = c.goldDeep,
+                modifier = Modifier.padding(horizontal = 18.dp),
             )
-            if (state.list == SmartList.TODAY && state.todayTotal > 0) {
-                ProgressRing(state.progress, size = 26.dp, stroke = 3.5.dp)
+        }
+    }
+}
+
+@Composable
+private fun Header(state: HomeUiState, onSetup: () -> Unit, modifier: Modifier = Modifier) {
+    val c = Rem.colors
+    val interaction = remember { MutableInteractionSource() }
+    Column(modifier.fillMaxWidth().statusBarsPadding().padding(top = 10.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(state.dateLabel, style = MaterialTheme.typography.labelSmall, color = c.secondaryLabel, modifier = Modifier.weight(1f).padding(start = 2.dp))
+            Box(
+                Modifier.pressScale(interaction, 0.9f).size(40.dp).clip(CircleShape).border(1.dp, c.separator, CircleShape)
+                    .clickable(interaction, ripple(), role = Role.Button, onClickLabel = "Settings", onClick = onSetup),
+                contentAlignment = Alignment.Center,
+            ) { Icon(Icons.Rounded.Tune, "Settings", tint = c.label, modifier = Modifier.size(19.dp)) }
+        }
+        Spacer(Modifier.height(26.dp))
+        Row(verticalAlignment = Alignment.Bottom) {
+            Column(Modifier.weight(1f)) {
+                Text("${state.greeting},", style = MaterialTheme.typography.headlineSmall.copy(fontStyle = FontStyle.Italic), color = c.secondaryLabel)
+                Spacer(Modifier.height(2.dp))
+                val left = state.remainingToday
+                AnimatedContent(
+                    targetState = when {
+                        state.loading -> ""
+                        left == 0 && state.todayDone > 0 -> "All clear\nfor today."
+                        left == 0 -> "A clear\nday ahead."
+                        left == 1 -> "One thing\nfor today."
+                        else -> "$left things\nfor today."
+                    },
+                    transitionSpec = {
+                        (fadeIn(tween(260)) + slideInVertically(tween(260)) { it / 6 }) togetherWith (fadeOut(tween(160)) + slideOutVertically(tween(160)) { -it / 6 })
+                    },
+                    label = "headline",
+                ) { Text(it, style = MaterialTheme.typography.displayMedium, color = c.label) }
             }
-        }
-        val subtitle = when {
-            state.selectedCategory != null -> null
-            state.list == SmartList.TODAY && state.todayTotal > 0 ->
-                "${state.remainingToday} remaining · ${state.todayDone} done"
-            else -> null
-        }
-        subtitle?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = c.secondaryLabel) }
-        if (state.selectedCategory != null) {
-            Row(
-                Modifier.padding(top = 4.dp).clip(RoundedCornerShape(8.dp)).clickable(onClick = onClearCategory).padding(vertical = 2.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(Icons.Rounded.Close, null, tint = c.accent, modifier = Modifier.size(16.dp))
-                Spacer(Modifier.width(4.dp))
-                Text("Show all categories", style = MaterialTheme.typography.bodyMedium, color = c.accent)
+            if (state.todayTotal > 0) {
+                Box(Modifier.padding(bottom = 6.dp).size(72.dp), contentAlignment = Alignment.Center) {
+                    ProgressRing(state.progress, size = 72.dp, stroke = 2.dp)
+                    Row(verticalAlignment = Alignment.Bottom) {
+                        AnimatedCounter(state.todayDone, MaterialTheme.typography.headlineMedium, c.label)
+                        Text("/${state.todayTotal}", style = MaterialTheme.typography.labelMedium, color = c.secondaryLabel, modifier = Modifier.padding(bottom = 5.dp))
+                    }
+                }
             }
         }
     }
 }
 
 @Composable
-private fun CategoryRow(category: Category, count: Int, selected: Boolean, onClick: () -> Unit) {
+private fun Collections(state: HomeUiState, onSelect: (Category) -> Unit, modifier: Modifier = Modifier) {
     val c = Rem.colors
-    Row(
-        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        CategoryGlyph(category)
-        Spacer(Modifier.width(12.dp))
-        Text(category.label, style = MaterialTheme.typography.bodyLarge, color = c.label, modifier = Modifier.weight(1f))
-        if (selected) Icon(Icons.Rounded.Check, null, tint = c.accent, modifier = Modifier.size(18.dp).padding(end = 2.dp))
-        Text("$count", style = MaterialTheme.typography.bodyLarge, color = c.secondaryLabel)
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        state.categories.chunked(2).forEach { pair ->
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                pair.forEach { (cat, count) ->
+                    val interaction = remember { MutableInteractionSource() }
+                    Row(
+                        Modifier.weight(1f).pressScale(interaction).noirSurface(RoundedCornerShape(20.dp))
+                            .clickable(interaction, ripple()) { onSelect(cat) }.padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        CategoryGlyph(cat, size = 32.dp)
+                        Spacer(Modifier.width(12.dp))
+                        Text(cat.label, style = MaterialTheme.typography.titleSmall, color = c.label, modifier = Modifier.weight(1f))
+                        Text("$count", style = MaterialTheme.typography.titleMedium, color = c.secondaryLabel)
+                    }
+                }
+                if (pair.size == 1) Spacer(Modifier.weight(1f))
+            }
+        }
     }
 }
 
@@ -423,23 +416,22 @@ private val EXAMPLES = listOf(
 )
 
 @Composable
-private fun EmptyState(state: HomeUiState, onAdd: () -> Unit, onVoice: () -> Unit) {
+private fun EmptyState(state: HomeUiState, onVoice: () -> Unit, modifier: Modifier = Modifier) {
     val c = Rem.colors
-    Column(Modifier.fillMaxWidth().padding(top = 40.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(
-            if (state.list == SmartList.TODAY && state.todayDone > 0) "All done for today" else "No reminders",
-            style = MaterialTheme.typography.titleLarge, color = c.secondaryLabel,
-        )
+    Column(modifier.fillMaxWidth().padding(top = 36.dp)) {
         if (state.counts[SmartList.ALL] == 0) {
-            Spacer(Modifier.height(6.dp))
-            Text("Tap the microphone and just say it:", style = MaterialTheme.typography.bodyMedium, color = c.secondaryLabel)
-            Spacer(Modifier.height(18.dp))
+            Caption("Just say it")
             GroupedCard {
                 EXAMPLES.forEachIndexed { i, text ->
-                    if (i > 0) RowDivider(52.dp)
-                    SettingRow("“$text”", icon = Icons.Rounded.Mic, iconColor = c.accent, onClick = onVoice, showChevron = false)
+                    if (i > 0) RowDivider(56.dp)
+                    SettingRow("“$text”", icon = Icons.Rounded.Mic, iconColor = c.gold, onClick = onVoice, showChevron = false)
                 }
             }
+        } else {
+            Text(
+                "Nothing here.", style = MaterialTheme.typography.headlineMedium.copy(fontStyle = FontStyle.Italic),
+                color = c.tertiaryLabel, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center,
+            )
         }
     }
 }
@@ -447,11 +439,12 @@ private fun EmptyState(state: HomeUiState, onAdd: () -> Unit, onVoice: () -> Uni
 @Composable
 private fun SwipeRow(model: ReminderCardModel, onOpen: () -> Unit, onComplete: () -> Unit, onSnooze: () -> Unit) {
     val c = Rem.colors
+    val haptics = rememberHaptics()
     val state = rememberSwipeToDismissBoxState(
         confirmValueChange = { value ->
             when (value) {
-                SwipeToDismissBoxValue.StartToEnd -> { onComplete(); true }
-                SwipeToDismissBoxValue.EndToStart -> { onSnooze(); false }
+                SwipeToDismissBoxValue.StartToEnd -> { haptics.confirm(); onComplete(); true }
+                SwipeToDismissBoxValue.EndToStart -> { haptics.tick(); onSnooze(); false }
                 SwipeToDismissBoxValue.Settled -> false
             }
         },
@@ -462,47 +455,49 @@ private fun SwipeRow(model: ReminderCardModel, onOpen: () -> Unit, onComplete: (
         backgroundContent = {
             val toDone = state.dismissDirection == SwipeToDismissBoxValue.StartToEnd
             Row(
-                Modifier.fillMaxSize().background(if (toDone) c.success else c.warning).padding(horizontal = 20.dp),
+                Modifier.fillMaxSize().background(if (toDone) c.gold else c.elevated).padding(horizontal = 24.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = if (toDone) Arrangement.Start else Arrangement.End,
             ) {
-                Icon(if (toDone) Icons.Rounded.Check else Icons.Rounded.Snooze, null, tint = Color.White, modifier = Modifier.size(20.dp))
-                Spacer(Modifier.width(6.dp))
-                Text(if (toDone) "Done" else "Snooze", color = Color.White, style = MaterialTheme.typography.labelLarge)
+                val fg = if (toDone) c.onIvory else c.label
+                Icon(if (toDone) Icons.Rounded.Check else Icons.Rounded.Snooze, null, tint = fg, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(if (toDone) "Complete" else "Snooze", color = fg, style = MaterialTheme.typography.labelLarge)
             }
         },
-    ) {
-        ReminderRow(model, onClick = onOpen, onComplete = onComplete)
-    }
+    ) { ReminderRow(model, onClick = onOpen, onComplete = onComplete) }
 }
 
+/** Floating dock: the two ways to add. */
 @Composable
-private fun BottomBar(onAdd: () -> Unit, onVoice: () -> Unit, modifier: Modifier = Modifier) {
+private fun Dock(onAdd: () -> Unit, onVoice: () -> Unit, modifier: Modifier = Modifier) {
     val c = Rem.colors
+    val haptics = rememberHaptics()
     val add = remember { MutableInteractionSource() }
     val mic = remember { MutableInteractionSource() }
-    Box(
-        modifier.fillMaxWidth().background(Brush.verticalGradient(listOf(c.canvas.copy(alpha = 0f), c.canvas, c.canvas))),
-    ) {
+    Box(modifier.fillMaxWidth().background(Brush.verticalGradient(listOf(Color.Transparent, c.canvas.copy(alpha = 0.92f), c.canvas)))) {
         Row(
-            Modifier.fillMaxWidth().navigationBarsPadding().padding(start = 12.dp, end = 16.dp, top = 18.dp, bottom = 10.dp),
+            Modifier.align(Alignment.Center).navigationBarsPadding().padding(top = 22.dp, bottom = 14.dp)
+                .shadow(24.dp, RoundedCornerShape(36.dp), ambientColor = Color.Black, spotColor = Color.Black)
+                .noirSurface(RoundedCornerShape(36.dp), elevated = true).padding(6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Row(
-                Modifier.pressScale(add).clip(RoundedCornerShape(12.dp))
-                    .clickable(add, ripple(), role = Role.Button, onClick = onAdd).padding(horizontal = 6.dp, vertical = 8.dp),
+                Modifier.pressScale(add, 0.96f).height(54.dp).clip(RoundedCornerShape(27.dp)).background(c.ivory)
+                    .clickable(add, ripple(color = Color.Black), role = Role.Button) { haptics.tick(); onAdd() }
+                    .padding(horizontal = 22.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(Icons.Rounded.AddCircle, null, tint = c.accent, modifier = Modifier.size(26.dp))
+                Icon(Icons.Rounded.Add, null, tint = c.onIvory, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(8.dp))
-                Text("New Reminder", style = MaterialTheme.typography.titleMedium, color = c.accent, fontWeight = FontWeight.Bold)
+                Text("New reminder", style = MaterialTheme.typography.labelLarge, color = c.onIvory)
             }
-            Spacer(Modifier.weight(1f))
+            Spacer(Modifier.width(6.dp))
             Box(
-                Modifier.pressScale(mic, 0.9f).size(46.dp).clip(CircleShape).background(c.accent)
-                    .clickable(mic, ripple(color = Color.White), role = Role.Button, onClickLabel = "Add by voice", onClick = onVoice),
+                Modifier.pressScale(mic, 0.9f).size(54.dp).clip(CircleShape).background(c.goldSheen)
+                    .clickable(mic, ripple(color = Color.Black), role = Role.Button, onClickLabel = "Add by voice") { haptics.tick(); onVoice() },
                 contentAlignment = Alignment.Center,
-            ) { Icon(Icons.Rounded.Mic, "Add by voice", tint = Color.White, modifier = Modifier.size(24.dp)) }
+            ) { Icon(Icons.Rounded.Mic, "Add by voice", tint = c.onIvory, modifier = Modifier.size(22.dp)) }
         }
     }
 }

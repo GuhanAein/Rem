@@ -66,6 +66,9 @@ import app.rem.ui.components.PrimaryButton
 import app.rem.ui.components.RowDivider
 import app.rem.ui.components.SettingRow
 import app.rem.ui.components.Token
+import app.rem.ui.components.noirSurface
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.withStyle
 import app.rem.ui.theme.Rem
 import kotlinx.coroutines.launch
 import kotlin.math.abs
@@ -73,10 +76,21 @@ import kotlin.math.abs
 data class Slide(val title: String, val body: String)
 
 val SLIDES = listOf(
-    Slide("Remember\neverything", "Tasks, medicine, bills, birthdays, documents, your car and your pets, in one calm place."),
-    Slide("Never miss\nwhat matters", "Important reminders ring like an alarm and gently repeat until they’re done."),
-    Slide("Just say it", "Tap the mic and talk. Rem understands the day, the time and how often, right on your phone."),
+    Slide("Remember\n*everything.*", "Tasks, medicine, bills, birthdays, documents, your car and your pets, in one calm place."),
+    Slide("Never miss\n*what matters.*", "Important reminders ring like an alarm and gently repeat until they’re done."),
+    Slide("Just\n*say it.*", "Tap the mic and talk. Rem understands the day, the time and how often, right on your phone."),
 )
+
+/** "*word*" segments render in italic gold serif. */
+fun editorial(text: String): androidx.compose.ui.text.AnnotatedString = androidx.compose.ui.text.buildAnnotatedString {
+    text.split('*').forEachIndexed { i, part ->
+        if (i % 2 == 1) {
+            withStyle(androidx.compose.ui.text.SpanStyle(fontStyle = androidx.compose.ui.text.font.FontStyle.Italic, color = Color(0xFFD9BC83))) { append(part) }
+        } else {
+            append(part)
+        }
+    }
+}
 
 @Composable
 fun OnboardingScreen(onFinished: () -> Unit) {
@@ -91,7 +105,7 @@ fun OnboardingScreen(onFinished: () -> Unit) {
     val notifLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { status = readSetupStatus(context) }
     val c = Rem.colors
 
-    Box(Modifier.fillMaxSize().background(c.card)) {
+    Box(Modifier.fillMaxSize().background(c.canvas)) {
         HorizontalPager(pager, Modifier.fillMaxSize()) { page ->
             val offset = (pager.currentPage - page) + pager.currentPageOffsetFraction
             if (page < SLIDES.size) {
@@ -123,7 +137,7 @@ fun OnboardingScreen(onFinished: () -> Unit) {
                 repeat(SLIDES.size + 1) { i ->
                     val on = pager.currentPage == i
                     val w by animateDpAsState(if (on) 18.dp else 7.dp, label = "dot")
-                    val col by animateColorAsState(if (on) c.label else c.tertiaryLabel, label = "dotc")
+                    val col by animateColorAsState(if (on) c.gold else c.tertiaryLabel, label = "dotc")
                     Box(Modifier.height(7.dp).width(w).clip(CircleShape).background(col))
                 }
             }
@@ -147,15 +161,15 @@ fun OnboardingScreen(onFinished: () -> Unit) {
 fun SlidePage(index: Int, slide: Slide, pageOffset: Float = 0f) {
     val c = Rem.colors
     Column(
-        Modifier.fillMaxSize().background(c.card).statusBarsPadding().padding(horizontal = 32.dp).padding(top = 96.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
+        Modifier.fillMaxSize().background(c.canvas).statusBarsPadding().padding(horizontal = 30.dp).padding(top = 80.dp),
+        horizontalAlignment = Alignment.Start,
     ) {
         Box(
             Modifier.height(240.dp).fillMaxWidth().graphicsLayer {
                 translationX = pageOffset * size.width * 0.3f
                 alpha = 1f - abs(pageOffset).coerceIn(0f, 1f)
             },
-            contentAlignment = Alignment.Center,
+            contentAlignment = Alignment.CenterStart,
         ) {
             when (index) {
                 0 -> CategoryGrid()
@@ -163,10 +177,12 @@ fun SlidePage(index: Int, slide: Slide, pageOffset: Float = 0f) {
                 else -> VoiceDemo()
             }
         }
-        Spacer(Modifier.height(40.dp))
-        Text(slide.title, style = MaterialTheme.typography.displaySmall, textAlign = TextAlign.Center, color = c.label)
+        Spacer(Modifier.height(48.dp))
+        Text("0${index + 1} / 03", style = MaterialTheme.typography.labelSmall, color = c.secondaryLabel)
         Spacer(Modifier.height(14.dp))
-        Text(slide.body, style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center, color = c.secondaryLabel)
+        Text(editorial(slide.title), style = MaterialTheme.typography.displayMedium.copy(fontSize = 52.sp, lineHeight = 54.sp), color = c.label)
+        Spacer(Modifier.height(18.dp))
+        Text(slide.body, style = MaterialTheme.typography.bodyLarge, color = c.secondaryLabel)
     }
 }
 
@@ -176,31 +192,36 @@ private fun CategoryGrid() {
     val cats = listOf(Category.TASK, Category.MEDICINE, Category.BILL, Category.BIRTHDAY, Category.HEALTH, Category.DOCUMENT, Category.VEHICLE, Category.PET, Category.HOME)
     FlowRow(
         Modifier.width(220.dp),
-        horizontalArrangement = Arrangement.spacedBy(20.dp, Alignment.CenterHorizontally),
+        horizontalArrangement = Arrangement.spacedBy(20.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp),
         maxItemsInEachRow = 3,
     ) { cats.forEach { CategoryGlyph(it, size = 56.dp) } }
 }
 
 @Composable
-private fun AppIcon(icon: ImageVector, color: Color) {
-    Box(Modifier.size(112.dp).clip(RoundedCornerShape(28.dp)).background(color), contentAlignment = Alignment.Center) {
-        Icon(icon, null, tint = Color.White, modifier = Modifier.size(56.dp))
+private fun AppIcon(icon: ImageVector, @Suppress("UNUSED_PARAMETER") color: Color) {
+    val c = Rem.colors
+    Box(Modifier.size(120.dp).noirSurface(RoundedCornerShape(34.dp), elevated = true), contentAlignment = Alignment.Center) {
+        Icon(icon, null, tint = c.gold, modifier = Modifier.size(52.dp))
     }
 }
 
 @Composable
 private fun VoiceDemo() {
     val c = Rem.colors
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(Modifier.size(84.dp).clip(CircleShape).background(c.accent), contentAlignment = Alignment.Center) {
-            Icon(Icons.Rounded.Mic, null, tint = Color.White, modifier = Modifier.size(38.dp))
+    Column(horizontalAlignment = Alignment.Start) {
+        Box(Modifier.size(84.dp).clip(CircleShape).background(c.ivory), contentAlignment = Alignment.Center) {
+            Icon(Icons.Rounded.Mic, null, tint = c.onIvory, modifier = Modifier.size(34.dp))
         }
-        Spacer(Modifier.height(22.dp))
-        Text("“Call mom tomorrow at 6 pm”", style = MaterialTheme.typography.titleMedium, color = c.label)
-        Spacer(Modifier.height(10.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            Token("Tomorrow, 6:00 PM", Icons.Rounded.CalendarMonth, tint = c.accent)
+        Spacer(Modifier.height(24.dp))
+        Text(
+            "\u201CCall mom tomorrow at six\u201D",
+            style = MaterialTheme.typography.headlineMedium.copy(fontStyle = androidx.compose.ui.text.font.FontStyle.Italic),
+            color = c.label,
+        )
+        Spacer(Modifier.height(14.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Token("Tomorrow \u00B7 6:00 PM", Icons.Rounded.CalendarMonth, tint = c.gold)
             Token("Task", null)
         }
     }
@@ -216,7 +237,7 @@ fun PermissionsContent(
     tip: String? = oemTip(),
 ) {
     val c = Rem.colors
-    Text("Make Rem\nreliable", style = MaterialTheme.typography.headlineLarge, color = c.label, modifier = Modifier.padding(start = 4.dp))
+    Text(editorial("Make Rem\n*unmissable.*"), style = MaterialTheme.typography.displaySmall, color = c.label, modifier = Modifier.padding(start = 4.dp))
     Spacer(Modifier.height(8.dp))
     Text(
         "Android can delay reminders to save battery. Allow these so Rem is always on time.",
@@ -224,13 +245,13 @@ fun PermissionsContent(
     )
     Spacer(Modifier.height(24.dp))
     GroupedCard {
-        PermissionRow(Icons.Rounded.Notifications, c.danger, "Notifications", status.notifications, onNotifications)
-        RowDivider(56.dp)
-        PermissionRow(Icons.Rounded.Schedule, c.accent, "Exact Alarms", status.exactAlarms, onExact)
-        RowDivider(56.dp)
-        PermissionRow(Icons.Rounded.Fullscreen, c.warning, "Full-Screen Alarms", status.fullScreen, onFullScreen)
-        RowDivider(56.dp)
-        PermissionRow(Icons.Rounded.BatteryChargingFull, c.success, "Unrestricted Battery", status.batteryUnrestricted, onBattery)
+        PermissionRow(Icons.Rounded.Notifications, c.secondaryLabel, "Notifications", status.notifications, onNotifications)
+        RowDivider(54.dp)
+        PermissionRow(Icons.Rounded.Schedule, c.secondaryLabel, "Exact alarms", status.exactAlarms, onExact)
+        RowDivider(54.dp)
+        PermissionRow(Icons.Rounded.Fullscreen, c.secondaryLabel, "Full-screen alarms", status.fullScreen, onFullScreen)
+        RowDivider(54.dp)
+        PermissionRow(Icons.Rounded.BatteryChargingFull, c.secondaryLabel, "Unrestricted battery", status.batteryUnrestricted, onBattery)
     }
     tip?.let {
         Text(it, style = MaterialTheme.typography.bodySmall, color = c.secondaryLabel, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
@@ -242,11 +263,11 @@ private fun PermissionRow(icon: ImageVector, color: Color, title: String, grante
     val c = Rem.colors
     SettingRow(title, icon = icon, iconColor = color, onClick = if (granted) null else onClick) {
         if (granted) {
-            Icon(Icons.Rounded.Check, "Allowed", tint = c.success, modifier = Modifier.size(20.dp))
+            Icon(Icons.Rounded.Check, "Allowed", tint = c.gold, modifier = Modifier.size(20.dp))
         } else {
             Text(
-                "Allow", style = MaterialTheme.typography.labelLarge, color = c.accent,
-                modifier = Modifier.clip(RoundedCornerShape(50)).background(c.fill).clickable(onClick = onClick).padding(horizontal = 14.dp, vertical = 6.dp),
+                "Allow", style = MaterialTheme.typography.labelMedium, color = c.onIvory,
+                modifier = Modifier.clip(RoundedCornerShape(50)).background(c.ivory).clickable(onClick = onClick).padding(horizontal = 14.dp, vertical = 7.dp),
             )
         }
     }
@@ -268,9 +289,9 @@ fun SetupScreen(onBack: () -> Unit) {
             Modifier.padding(top = 6.dp).clip(RoundedCornerShape(10.dp)).clickable(onClick = onBack).padding(vertical = 8.dp, horizontal = 2.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(Icons.AutoMirrored.Rounded.ArrowBack, null, tint = c.accent, modifier = Modifier.size(22.dp))
+            Icon(Icons.AutoMirrored.Rounded.ArrowBack, null, tint = c.label, modifier = Modifier.size(22.dp))
             Spacer(Modifier.width(4.dp))
-            Text("Back", style = MaterialTheme.typography.bodyLarge, color = c.accent)
+            Text("Back", style = MaterialTheme.typography.bodyLarge, color = c.label)
         }
         Spacer(Modifier.height(12.dp))
         PermissionsContent(

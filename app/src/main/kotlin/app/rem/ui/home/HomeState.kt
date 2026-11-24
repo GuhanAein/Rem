@@ -21,6 +21,7 @@ data class HomeSection(val key: String, val title: String, val items: List<Remin
 
 data class HomeUiState(
     val dateLabel: String = "",
+    val greeting: String = "",
     val list: SmartList = SmartList.TODAY,
     val counts: Map<SmartList, Int> = emptyMap(),
     val categories: List<Pair<Category, Int>> = emptyList(),
@@ -64,15 +65,26 @@ fun buildHomeState(
         val late = due != null && due.isBefore(now)
         val text = when {
             due == null -> r.category.label
-            late && due.toLocalDate() == today -> "${formatTime(due.toLocalTime())} · ${describeLateness(due, now)}"
+            late && due.toLocalDate() == today -> "${formatTime(due.toLocalTime())} \u00B7 ${describeLateness(due, now)}"
             late -> "${formatDay(due.toLocalDate(), today)}, ${formatTime(due.toLocalTime())}"
             due.toLocalDate() == today -> formatTime(due.toLocalTime())
             else -> "${formatDay(due.toLocalDate(), today)}, ${formatTime(due.toLocalTime())}"
         }
+        val repeat = RecurrenceRule.parseOrNull(r.recurrence)?.describe()
+        val clock = due?.let { formatTime(it.toLocalTime()) }
+        val meta = listOfNotNull(
+            r.category.label,
+            repeat,
+            if (late && due != null) describeLateness(due, now) else null,
+        ).joinToString("  \u00B7  ")
         return ReminderCardModel(
             id = r.id, title = r.title, category = r.category, priority = r.priority, dueText = text, isLate = late,
-            repeatText = RecurrenceRule.parseOrNull(r.recurrence)?.describe(), alertStyle = r.alertStyle,
+            repeatText = repeat, alertStyle = r.alertStyle,
             amount = r.amount, notes = r.notes, nagging = r.nagMinutes != null,
+            time = clock?.substringBefore(' '),
+            meridiem = clock?.substringAfter(' ', ""),
+            dayLabel = due?.toLocalDate()?.takeIf { it != today }?.let { formatDay(it, today) },
+            meta = meta,
         )
     }
 
@@ -90,6 +102,7 @@ fun buildHomeState(
 
     return HomeUiState(
         dateLabel = now.format(DATE_LABEL).uppercase(Locale.ENGLISH),
+        greeting = app.rem.ui.format.greetingFor(now.toLocalTime()),
         list = list,
         counts = counts,
         categories = active.groupingBy { it.category }.eachCount().toList().sortedBy { it.first.ordinal },

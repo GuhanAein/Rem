@@ -16,6 +16,11 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.animation.core.animateFloat
+import app.rem.ui.components.color
+import app.rem.ui.components.icon
+import app.rem.ui.motion.pressScale
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -36,7 +41,6 @@ import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.Flag
 import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.Repeat
-import androidx.compose.material.icons.rounded.Stop
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -65,7 +69,6 @@ import app.rem.core.parser.ParsedReminder
 import app.rem.core.parser.QuickAddParser
 import app.rem.core.recurrence.describe
 import app.rem.ui.add.buildQuickReminder
-import app.rem.ui.components.CategoryGlyph
 import app.rem.ui.components.PrimaryButton
 import app.rem.ui.components.SecondaryButton
 import app.rem.ui.components.Token
@@ -114,7 +117,8 @@ fun VoiceSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = Rem.colors.card,
+        containerColor = Rem.colors.surface,
+        dragHandle = { app.rem.ui.components.SheetHandle() },
     ) {
         VoiceContent(
             phase = speech.phase,
@@ -149,84 +153,113 @@ fun VoiceContent(
     val c = Rem.colors
     val listening = phase == VoicePhase.LISTENING
     Column(
-        Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 24.dp).padding(bottom = 16.dp).animateContentSize(),
+        Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 26.dp).padding(bottom = 18.dp).animateContentSize(),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         AnimatedContent(
             targetState = when {
-                listening -> "Listening…"
-                phase == VoicePhase.DONE -> "Here’s what I heard"
-                phase == VoicePhase.ERROR -> "Let’s try that again"
-                else -> "Tap to speak"
+                listening -> "LISTENING"
+                phase == VoicePhase.DONE -> "UNDERSTOOD"
+                phase == VoicePhase.ERROR -> "TRY AGAIN"
+                else -> "TAP TO SPEAK"
             },
-            transitionSpec = { fadeIn(tween(150)) togetherWith fadeOut(tween(150)) },
+            transitionSpec = { fadeIn(tween(160)) togetherWith fadeOut(tween(160)) },
             label = "status",
-        ) { Text(it, style = MaterialTheme.typography.labelLarge, color = c.secondaryLabel) }
+        ) { Text(it, style = MaterialTheme.typography.labelSmall, color = if (listening) c.gold else c.secondaryLabel) }
 
-        Spacer(Modifier.height(14.dp))
-        Box(Modifier.fillMaxWidth().heightIn(min = 72.dp), contentAlignment = Alignment.Center) {
+        Spacer(Modifier.height(18.dp))
+        Box(Modifier.fillMaxWidth().heightIn(min = 96.dp), contentAlignment = Alignment.Center) {
             when {
                 transcript.isNotBlank() -> Text(
-                    if (phase == VoicePhase.DONE) parsed.title.replaceFirstChar { it.uppercase() } else transcript,
-                    style = MaterialTheme.typography.headlineSmall, color = c.label, textAlign = TextAlign.Center,
+                    if (phase == VoicePhase.DONE) parsed.title.replaceFirstChar { it.uppercase() } else "\u201C$transcript\u201D",
+                    style = MaterialTheme.typography.headlineLarge, color = c.label, textAlign = TextAlign.Center,
                 )
                 error != null -> Text(error, style = MaterialTheme.typography.bodyLarge, color = c.secondaryLabel, textAlign = TextAlign.Center)
                 else -> Text(
-                    "Say something like\n“Call mom tomorrow at 6 pm”",
-                    style = MaterialTheme.typography.bodyLarge, color = c.tertiaryLabel, textAlign = TextAlign.Center,
+                    "\u201CCall mom tomorrow\nat six in the evening\u201D",
+                    style = MaterialTheme.typography.headlineMedium.copy(fontStyle = androidx.compose.ui.text.font.FontStyle.Italic),
+                    color = c.tertiaryLabel, textAlign = TextAlign.Center,
                 )
             }
         }
 
-        // What Rem understood, live.
-        AnimatedVisibility(transcript.isNotBlank(), enter = fadeIn(tween(200)), exit = fadeOut(tween(120))) {
+        AnimatedVisibility(transcript.isNotBlank(), enter = fadeIn(tween(220)), exit = fadeOut(tween(120))) {
             FlowRow(
-                Modifier.padding(top = 12.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
+                Modifier.padding(top = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    CategoryGlyph(parsed.category, size = 26.dp)
-                }
+                Token(parsed.category.label, parsed.category.icon, tint = parsed.category.color)
                 Token(
                     if (parsed.dueAt != null) describeDue(parsed.dueAt, now.toLocalDate()) else "No time yet",
                     Icons.Rounded.CalendarMonth,
-                    tint = if (parsed.dueAt != null) c.accent else c.secondaryLabel,
+                    tint = if (parsed.dueAt != null) c.gold else c.secondaryLabel,
                 )
                 parsed.recurrence?.let { Token(it.describe(), Icons.Rounded.Repeat) }
-                if (parsed.priority == Priority.HIGH) Token(parsed.priority.label, Icons.Rounded.Flag, tint = c.warning)
-                Token(parsed.category.label, null)
+                if (parsed.priority == Priority.HIGH) Token("High priority", Icons.Rounded.Flag, tint = c.danger)
             }
         }
 
-        Spacer(Modifier.height(28.dp))
-        MicButton(listening, level, onMic)
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(26.dp))
+        Waveform(listening, level, Modifier.fillMaxWidth().height(44.dp))
+        Spacer(Modifier.height(18.dp))
+        MicButton(listening, onMic)
+        Spacer(Modifier.height(22.dp))
 
-        AnimatedVisibility(phase == VoicePhase.DONE && transcript.isNotBlank(), enter = fadeIn(tween(200)), exit = fadeOut(tween(120))) {
+        AnimatedVisibility(phase == VoicePhase.DONE && transcript.isNotBlank(), enter = fadeIn(tween(220)), exit = fadeOut(tween(120))) {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
                 SecondaryButton("Edit", onEdit, Modifier.weight(1f))
-                PrimaryButton("Add Reminder", onAdd, Modifier.weight(1.4f))
+                PrimaryButton("Add reminder", onAdd, Modifier.weight(1.5f))
             }
         }
     }
 }
 
+/** Thin gold bars that rise with your voice and settle to a calm line in silence. */
 @Composable
-private fun MicButton(listening: Boolean, level: Float, onClick: () -> Unit) {
+private fun Waveform(active: Boolean, level: Float, modifier: Modifier = Modifier) {
     val c = Rem.colors
-    val ring by animateFloatAsState(if (listening) 1f + level * 0.45f else 1f, spring(dampingRatio = 0.8f, stiffness = 600f), label = "level")
-    val halo by animateFloatAsState(if (listening) 1f else 0f, tween(200), label = "halo")
-    Box(Modifier.size(120.dp), contentAlignment = Alignment.Center) {
-        // A single soft halo that breathes with your voice.
-        Box(
-            Modifier.size(76.dp).graphicsLayer { scaleX = ring * 1.3f; scaleY = ring * 1.3f; alpha = halo }
-                .clip(CircleShape).background(c.accent.copy(alpha = 0.14f)),
+    val ambient = app.rem.ui.motion.LocalAmbientMotion.current
+    val t = if (ambient && active) {
+        val v by androidx.compose.animation.core.rememberInfiniteTransition(label = "wave").animateFloat(
+            0f, 1f, androidx.compose.animation.core.infiniteRepeatable(tween(1400, easing = androidx.compose.animation.core.LinearEasing)), label = "t",
         )
-        Box(
-            Modifier.size(76.dp).clip(CircleShape).background(if (listening) c.danger else c.accent)
-                .clickable(role = Role.Button, onClickLabel = if (listening) "Stop listening" else "Start listening", onClick = onClick),
-            contentAlignment = Alignment.Center,
-        ) { Icon(if (listening) Icons.Rounded.Stop else Icons.Rounded.Mic, null, tint = Color.White, modifier = Modifier.size(32.dp)) }
+        v
+    } else 0.3f
+    val energy by animateFloatAsState(if (active) 0.25f + level * 0.75f else 0.06f, spring(dampingRatio = 0.8f, stiffness = 300f), label = "energy")
+    androidx.compose.foundation.Canvas(modifier) {
+        val bars = 36
+        val gap = size.width / bars
+        val barW = 2.2.dp.toPx()
+        for (i in 0 until bars) {
+            val x = gap * i + gap / 2
+            // A soft bell envelope so the centre moves most.
+            val envelope = kotlin.math.sin(Math.PI * (i + 0.5) / bars).toFloat()
+            val wave = 0.55f + 0.45f * kotlin.math.sin((t * 2 * Math.PI + i * 0.55).toFloat())
+            val h = (size.height * energy * envelope * wave).coerceAtLeast(barW)
+            drawLine(
+                if (active) c.gold else c.tertiaryLabel,
+                androidx.compose.ui.geometry.Offset(x, size.height / 2 - h / 2),
+                androidx.compose.ui.geometry.Offset(x, size.height / 2 + h / 2),
+                barW, androidx.compose.ui.graphics.StrokeCap.Round,
+            )
+        }
+    }
+}
+
+@Composable
+private fun MicButton(listening: Boolean, onClick: () -> Unit) {
+    val c = Rem.colors
+    val haptics = app.rem.ui.motion.rememberHaptics()
+    val interaction = androidx.compose.runtime.remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    Box(
+        Modifier.size(76.dp).pressScale(interaction, 0.92f)
+            .clip(CircleShape).background(if (listening) Color.Transparent else c.ivory)
+            .then(if (listening) Modifier.border(1.5.dp, c.gold, CircleShape) else Modifier)
+            .clickable(interaction, androidx.compose.material3.ripple(), role = Role.Button, onClickLabel = if (listening) "Stop listening" else "Start listening") { haptics.tick(); onClick() },
+        contentAlignment = Alignment.Center,
+    ) {
+        if (listening) Box(Modifier.size(22.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(5.dp)).background(c.gold))
+        else Icon(Icons.Rounded.Mic, null, tint = c.onIvory, modifier = Modifier.size(30.dp))
     }
 }

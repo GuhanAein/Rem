@@ -15,16 +15,20 @@
 - **Reliability:** exact alarms, rescheduling after reboot, clock or time-zone changes, a permission setup wizard, and battery-saver tips for each phone brand (Xiaomi, Samsung, OnePlus and others).
 - **Share to Rem:** share any text from another app to create a reminder.
 - **Voice input** that understands spoken times, plus **home-screen widgets** and launcher shortcuts.
-- Light and dark themes, edge-to-edge.
+- A premium dark design, edge-to-edge.
 
-## Design
-Clean and minimal: one accent colour, white grouped cards on a soft grey canvas, large bold titles, hairline separators and quiet motion. Colour appears only where it carries meaning: overdue in red, small category glyphs, and done in green. Light and dark themes are included.
+## Design: Rem Noir
+A quiet, premium, dark-first design language:
+- **Deep black canvas** with charcoal surfaces lit by a fine highlight along their top edge.
+- **Editorial typography:** Instrument Serif for greetings, titles, times and the alarm clock, and Inter for everything you read and tap.
+- **Restraint with colour:** ivory for primary actions and champagne gold for progress and selection. Category colours appear only as small muted marks.
+- **Considered motion:** sliding segmented controls, a self-drawing gold check, rolling counters, a gold waveform that follows your voice, a breathing glow on the alarm, slide-to-complete, a card-to-details transform, and crisp haptics on every meaningful action.
 
 ![Rem in motion](docs/motion/showreel.gif)
 
-| Today | Dark | Scheduled | Empty |
+| Today | Scheduled | All + collections | First run |
 |---|---|---|---|
-| ![](docs/screenshots/home_light.png) | ![](docs/screenshots/home_dark.png) | ![](docs/screenshots/home_scheduled.png) | ![](docs/screenshots/home_empty.png) |
+| ![](docs/screenshots/home_light.png) | ![](docs/screenshots/home_scheduled.png) | ![](docs/screenshots/home_all.png) | ![](docs/screenshots/home_empty.png) |
 
 | Voice: listening | Voice: understood | Quick add | Details |
 |---|---|---|---|
@@ -33,6 +37,8 @@ Clean and minimal: one accent colour, white grouped cards on a soft grey canvas,
 | Alarm | Onboarding | Just say it | Setup |
 |---|---|---|---|
 | ![](docs/screenshots/alarm.png) | ![](docs/screenshots/onboarding_1.png) | ![](docs/screenshots/onboarding_3.png) | ![](docs/screenshots/setup.png) |
+
+Fonts: [Inter](docs/licenses/Inter-OFL.txt) and [Instrument Serif](docs/licenses/InstrumentSerif-OFL.txt), both under the SIL Open Font License 1.1.
 
 ## Voice
 Tap the mic (in the app, the widget, or by long-pressing the app icon) and say it naturally:

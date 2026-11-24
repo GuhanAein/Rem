@@ -8,6 +8,10 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.ui.graphics.graphicsLayer
+import app.rem.ui.components.color
+import app.rem.ui.components.icon
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -132,7 +136,8 @@ fun QuickAddSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = Rem.colors.card,
+        containerColor = Rem.colors.surface,
+        dragHandle = { app.rem.ui.components.SheetHandle() },
     ) {
         QuickAddContent(
             text = text,
@@ -177,65 +182,72 @@ fun QuickAddContent(
     val hasText = text.isNotBlank()
     var pickCategory by remember { mutableStateOf(false) }
 
-    Column(Modifier.fillMaxWidth().navigationBarsPadding().imePadding().padding(horizontal = 20.dp).padding(bottom = 12.dp).animateContentSize()) {
-        Row(verticalAlignment = Alignment.Top) {
-            CategoryGlyph(category, Modifier.padding(top = 2.dp).clip(CircleShape).clickable { pickCategory = true }, size = 28.dp)
-            Spacer(Modifier.width(12.dp))
-            Box(Modifier.weight(1f).padding(top = 2.dp)) {
-                if (text.isEmpty()) Text("New Reminder", style = MaterialTheme.typography.titleLarge, color = c.tertiaryLabel)
-                BasicTextField(
-                    value = text,
-                    onValueChange = onTextChange,
-                    textStyle = MaterialTheme.typography.titleLarge.copy(color = c.label),
-                    cursorBrush = SolidColor(c.accent),
-                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences, imeAction = ImeAction.Done),
-                    keyboardActions = KeyboardActions(onDone = { onSave() }),
-                    modifier = Modifier.fillMaxWidth().focusRequester(focus),
+    Column(Modifier.fillMaxWidth().navigationBarsPadding().imePadding().padding(horizontal = 24.dp).padding(bottom = 14.dp).animateContentSize()) {
+        Text("NEW REMINDER", style = MaterialTheme.typography.labelSmall, color = c.secondaryLabel)
+        Spacer(Modifier.height(12.dp))
+        Box(Modifier.fillMaxWidth()) {
+            if (text.isEmpty()) {
+                Text(
+                    "What should I remember?",
+                    style = MaterialTheme.typography.headlineMedium.copy(fontStyle = androidx.compose.ui.text.font.FontStyle.Italic),
+                    color = c.tertiaryLabel,
                 )
             }
-        }
-        if (text.isEmpty()) {
-            Text(
-                "Try “Pay rent every 1st at 9am”",
-                style = MaterialTheme.typography.bodyMedium, color = c.secondaryLabel,
-                modifier = Modifier.padding(start = 40.dp, top = 4.dp),
+            BasicTextField(
+                value = text,
+                onValueChange = onTextChange,
+                textStyle = MaterialTheme.typography.headlineMedium.copy(color = c.label),
+                cursorBrush = SolidColor(c.gold),
+                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences, imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = { onSave() }),
+                modifier = Modifier.fillMaxWidth().focusRequester(focus),
             )
         }
+        if (text.isEmpty()) {
+            Spacer(Modifier.height(6.dp))
+            Text("Try \u201Cpay rent every 1st at 9am\u201D", style = MaterialTheme.typography.bodyMedium, color = c.secondaryLabel)
+        }
 
-        Spacer(Modifier.height(14.dp))
-        FlowRow(Modifier.padding(start = 40.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Fade(due != null) { Token(describeDue(due, now.toLocalDate()), Icons.Rounded.CalendarMonth, tint = c.accent) }
+        Spacer(Modifier.height(18.dp))
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Fade(hasText) {
+                Row(
+                    Modifier.clip(androidx.compose.foundation.shape.RoundedCornerShape(50)).clickable { pickCategory = true },
+                    verticalAlignment = Alignment.CenterVertically,
+                ) { Token(category.label, category.icon, tint = category.color) }
+            }
+            Fade(due != null) { Token(describeDue(due, now.toLocalDate()), Icons.Rounded.CalendarMonth, tint = c.gold) }
             val repeat = parsed.recurrence ?: RecurrenceRule.parseOrNull(category.defaultRecurrence?.takeIf { due != null })
             Fade(repeat != null) { Token(repeat?.describe().orEmpty(), Icons.Rounded.Repeat) }
-            Fade(parsed.priority == Priority.HIGH) { Token(parsed.priority.label, Icons.Rounded.Flag, tint = c.warning) }
-            Fade(hasText) { Token(category.label, null, onClick = { pickCategory = true }) }
-            Fade(hasText) { Token(if (alarm) "Alarm" else "Notification", Icons.Rounded.Alarm, tint = if (alarm) c.accent else c.secondaryLabel, onClick = { onAlarm(!alarm) }) }
+            Fade(parsed.priority == Priority.HIGH) { Token("High priority", Icons.Rounded.Flag, tint = c.danger) }
+            Fade(hasText) { Token(if (alarm) "Rings as alarm" else "Notification", Icons.Rounded.Alarm, tint = if (alarm) c.gold else c.secondaryLabel, onClick = { onAlarm(!alarm) }) }
         }
-        AnimatedVisibility(due == null && hasText, enter = fadeIn(tween(150)), exit = fadeOut(tween(150))) {
-            Row(Modifier.padding(start = 40.dp, top = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        AnimatedVisibility(due == null && hasText, enter = fadeIn(tween(160)), exit = fadeOut(tween(120))) {
+            Row(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 QuickPick.entries.forEach { pick ->
                     Text(
                         pick.label,
-                        style = MaterialTheme.typography.labelMedium, color = c.accent,
-                        modifier = Modifier.clip(androidx.compose.foundation.shape.RoundedCornerShape(8.dp))
-                            .background(c.fill).clickable(role = Role.Button) { onQuickPick(pick.resolve(now)) }
-                            .padding(horizontal = 9.dp, vertical = 6.dp),
+                        style = MaterialTheme.typography.labelMedium, color = c.label,
+                        modifier = Modifier.clip(androidx.compose.foundation.shape.RoundedCornerShape(50))
+                            .background(c.elevated).clickable(role = Role.Button) { onQuickPick(pick.resolve(now)) }
+                            .padding(horizontal = 12.dp, vertical = 7.dp),
                     )
                 }
             }
         }
 
-        Spacer(Modifier.height(18.dp))
-        Box(Modifier.fillMaxWidth().height(0.5.dp).background(c.separator))
-        Row(Modifier.fillMaxWidth().padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+        Spacer(Modifier.height(22.dp))
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             IconAction(Icons.Rounded.Mic, "Speak instead", onVoice)
+            Spacer(Modifier.width(8.dp))
             IconAction(Icons.Rounded.Tune, "Details", onMoreOptions)
             Spacer(Modifier.weight(1f))
+            val sendScale by androidx.compose.animation.core.animateFloatAsState(if (hasText) 1f else 0.9f, androidx.compose.animation.core.spring(dampingRatio = 0.5f, stiffness = 500f), label = "send")
             Box(
-                Modifier.size(36.dp).clip(CircleShape).background(if (hasText) c.accent else c.fill)
+                Modifier.graphicsLayer { scaleX = sendScale; scaleY = sendScale }.size(48.dp).clip(CircleShape).background(if (hasText) c.ivory else c.elevated)
                     .clickable(enabled = hasText, role = Role.Button, onClickLabel = "Add", onClick = onSave),
                 contentAlignment = Alignment.Center,
-            ) { Icon(Icons.Rounded.ArrowUpward, "Add", tint = if (hasText) Color.White else c.tertiaryLabel, modifier = Modifier.size(20.dp)) }
+            ) { Icon(Icons.Rounded.ArrowUpward, "Add", tint = if (hasText) c.onIvory else c.tertiaryLabel, modifier = Modifier.size(22.dp)) }
         }
     }
 
@@ -253,9 +265,11 @@ fun QuickAddContent(
 
 @Composable
 private fun IconAction(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit) {
-    Box(Modifier.size(40.dp).clip(CircleShape).clickable(role = Role.Button, onClickLabel = label, onClick = onClick), contentAlignment = Alignment.Center) {
-        Icon(icon, label, tint = Rem.colors.accent, modifier = Modifier.size(22.dp))
-    }
+    Box(
+        Modifier.size(44.dp).clip(CircleShape).border(1.dp, Rem.colors.separator, CircleShape)
+            .clickable(role = Role.Button, onClickLabel = label, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) { Icon(icon, label, tint = Rem.colors.label, modifier = Modifier.size(20.dp)) }
 }
 
 @Composable

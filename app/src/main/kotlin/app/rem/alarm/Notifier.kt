@@ -18,7 +18,6 @@ import app.rem.core.model.AlertStyle
 import app.rem.core.model.Reminder
 import app.rem.core.scheduling.SnoozePreset
 import app.rem.ui.MainActivity
-import app.rem.ui.components.categoryColorArgb
 import app.rem.ui.format.describeDue
 
 class Notifier(private val context: Context) {
@@ -69,7 +68,7 @@ class Notifier(private val context: Context) {
         }
         val builder = NotificationCompat.Builder(context, if (isAlarm) CHANNEL_ALARMS else CHANNEL_REMINDERS)
             .setSmallIcon(R.drawable.ic_notification)
-            .setColor(categoryColorArgb(reminder.category))
+            .setColor(0xFFD9BC83.toInt())
             .setContentTitle(reminder.title)
             .setContentText(subtitle)
             .setStyle(NotificationCompat.BigTextStyle().bigText(listOf(subtitle, reminder.notes).filter { it.isNotBlank() }.joinToString("\n")))

@@ -22,19 +22,19 @@ import app.rem.core.model.Priority
 
 val Category.color: Color
     get() = when (this) {
-        Category.TASK -> Color(0xFF0A72E8)
-        Category.WORK -> Color(0xFF5E5CE6)
-        Category.MEDICINE -> Color(0xFFE5483F)
-        Category.HEALTH -> Color(0xFF2FB24C)
-        Category.HABIT -> Color(0xFFF08C00)
-        Category.BILL -> Color(0xFF8E5BD8)
-        Category.BIRTHDAY -> Color(0xFFE5487F)
-        Category.EVENT -> Color(0xFF17A2B8)
-        Category.DOCUMENT -> Color(0xFF7D8590)
-        Category.VEHICLE -> Color(0xFF2C8FD6)
-        Category.HOME -> Color(0xFF8A6D3B)
-        Category.PET -> Color(0xFFD9822B)
-        Category.SHOPPING -> Color(0xFF1FA58B)
+        Category.TASK -> Color(0xFFB9C3F5)
+        Category.WORK -> Color(0xFFAEB8C8)
+        Category.MEDICINE -> Color(0xFFF2A296)
+        Category.HEALTH -> Color(0xFFA3D6AE)
+        Category.HABIT -> Color(0xFFEBCB8E)
+        Category.BILL -> Color(0xFFCBB8F0)
+        Category.BIRTHDAY -> Color(0xFFF1B5CB)
+        Category.EVENT -> Color(0xFF98D2DB)
+        Category.DOCUMENT -> Color(0xFFC9C5BC)
+        Category.VEHICLE -> Color(0xFFA5C8EB)
+        Category.HOME -> Color(0xFFD8C4A2)
+        Category.PET -> Color(0xFFF0BE95)
+        Category.SHOPPING -> Color(0xFF9ED6C6)
     }
 
 val Category.icon: ImageVector
@@ -58,9 +58,9 @@ fun categoryColorArgb(category: Category): Int = category.color.toArgb()
 
 val Priority.color: Color?
     get() = when (this) {
-        Priority.HIGH -> Color(0xFFE5483F)
-        Priority.MEDIUM -> Color(0xFFF08C00)
-        Priority.LOW -> Color(0xFF0A72E8)
+        Priority.HIGH -> Color(0xFFEC7B6B)
+        Priority.MEDIUM -> Color(0xFFE9B872)
+        Priority.LOW -> Color(0xFF9CB4E0)
         Priority.NONE -> null
     }
 

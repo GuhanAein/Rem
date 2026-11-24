@@ -73,7 +73,7 @@ class MotionRecordTest {
 
     @androidx.compose.runtime.Composable
     private fun Sheet(content: @androidx.compose.runtime.Composable () -> Unit) {
-        Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.35f))) {
+        Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.6f))) {
             Box(
                 Modifier.align(Alignment.BottomCenter).clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
                     .background(Rem.colors.card).padding(top = 28.dp),

@@ -50,12 +50,15 @@ import app.rem.ui.format.formatDay
 import app.rem.ui.format.formatTime
 import java.time.LocalDateTime
 
-private val Card = ColorProvider(day = Color(0xFFFFFFFF), night = Color(0xFF1C1C1E))
-private val Label = ColorProvider(day = Color(0xFF111114), night = Color(0xFFF5F5F7))
-private val Secondary = ColorProvider(day = Color(0xFF8A8A8F), night = Color(0xFF8E8E93))
-private val Accent = ColorProvider(day = Color(0xFF0A72E8), night = Color(0xFF3D95F5))
-private val Danger = ColorProvider(day = Color(0xFFE5483F), night = Color(0xFFFF5A4F))
-private val White = ColorProvider(day = Color.White, night = Color.White)
+// Rem Noir on the home screen: charcoal card, ivory buttons, gold accents.
+private val Card = ColorProvider(day = Color(0xFF131316), night = Color(0xFF131316))
+private val Label = ColorProvider(day = Color(0xFFF3F0E8), night = Color(0xFFF3F0E8))
+private val Secondary = ColorProvider(day = Color(0xFF8E8B84), night = Color(0xFF8E8B84))
+private val Accent = ColorProvider(day = Color(0xFFD9BC83), night = Color(0xFFD9BC83))
+private val Danger = ColorProvider(day = Color(0xFFEC7B6B), night = Color(0xFFEC7B6B))
+private val Ivory = ColorProvider(day = Color(0xFFF3F0E8), night = Color(0xFFF3F0E8))
+private val Ink = ColorProvider(day = Color(0xFF0B0B0D), night = Color(0xFF0B0B0D))
+private val White = Ink
 
 private fun launch(context: Context, action: String? = null, openId: Long? = null): Intent =
     Intent(context, MainActivity::class.java).apply {
@@ -97,11 +100,11 @@ class TodayWidget : GlanceAppWidget() {
 
     @Composable
     private fun TodayContent(context: Context, count: Int, rows: List<WidgetRow>) {
-        Column(GlanceModifier.fillMaxSize().background(Card).cornerRadius(22.dp).padding(14.dp)) {
+        Column(GlanceModifier.fillMaxSize().background(Card).cornerRadius(26.dp).padding(14.dp)) {
             Row(GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(GlanceModifier.defaultWeight().clickable(actionStartActivity(launch(context)))) {
-                    Text("Today", style = TextStyle(color = Accent, fontSize = 13.sp, fontWeight = FontWeight.Medium))
-                    Text("$count", style = TextStyle(color = Label, fontSize = 28.sp, fontWeight = FontWeight.Bold))
+                    Text("TODAY", style = TextStyle(color = Accent, fontSize = 10.sp, fontWeight = FontWeight.Medium))
+                    Text("$count", style = TextStyle(color = Label, fontSize = 34.sp, fontFamily = androidx.glance.text.FontFamily.Serif))
                 }
                 RoundButton(R.drawable.ic_widget_add, launch(context, MainActivity.ACTION_QUICK_ADD))
                 Spacer(GlanceModifier.width(8.dp))
@@ -110,7 +113,7 @@ class TodayWidget : GlanceAppWidget() {
             Spacer(GlanceModifier.height(8.dp))
             if (rows.isEmpty()) {
                 Box(GlanceModifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("All clear", style = TextStyle(color = Secondary, fontSize = 15.sp))
+                    Text("All clear.", style = TextStyle(color = Secondary, fontSize = 18.sp, fontFamily = androidx.glance.text.FontFamily.Serif))
                 }
             } else {
                 LazyColumn {
@@ -137,7 +140,7 @@ class TodayWidget : GlanceAppWidget() {
     @Composable
     private fun RoundButton(icon: Int, intent: Intent) {
         Box(
-            GlanceModifier.size(34.dp).cornerRadius(17.dp).background(Accent).clickable(actionStartActivity(intent)),
+            GlanceModifier.size(36.dp).cornerRadius(18.dp).background(Ivory).clickable(actionStartActivity(intent)),
             contentAlignment = Alignment.Center,
         ) { Image(ImageProvider(icon), null, colorFilter = ColorFilter.tint(White), modifier = GlanceModifier.size(20.dp)) }
     }
@@ -148,18 +151,18 @@ class QuickAddWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         provideContent {
             Row(
-                GlanceModifier.fillMaxSize().background(Card).cornerRadius(22.dp).padding(10.dp),
+                GlanceModifier.fillMaxSize().background(Card).cornerRadius(26.dp).padding(10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Row(
-                    GlanceModifier.defaultWeight().fillMaxSize().cornerRadius(16.dp).background(Accent)
+                    GlanceModifier.defaultWeight().fillMaxSize().cornerRadius(26.dp).background(Ivory)
                         .clickable(actionStartActivity(launch(context, MainActivity.ACTION_QUICK_ADD))),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     Image(ImageProvider(R.drawable.ic_widget_add), null, colorFilter = ColorFilter.tint(White), modifier = GlanceModifier.size(20.dp))
                     Spacer(GlanceModifier.width(6.dp))
-                    Text("New", style = TextStyle(color = White, fontSize = 15.sp, fontWeight = FontWeight.Medium))
+                    Text("New reminder", style = TextStyle(color = Ink, fontSize = 14.sp, fontWeight = FontWeight.Medium))
                 }
                 Spacer(GlanceModifier.width(8.dp))
                 Box(
