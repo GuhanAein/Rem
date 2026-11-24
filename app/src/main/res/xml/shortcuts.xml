@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="voice"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_mic"
+        android:shortcutShortLabel="@string/shortcut_voice">
+        <intent
+            android:action="app.rem.action.VOICE"
+            android:targetPackage="app.rem"
+            android:targetClass="app.rem.ui.MainActivity" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="new"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_add"
+        android:shortcutShortLabel="@string/shortcut_new">
+        <intent
+            android:action="app.rem.action.QUICK_ADD"
+            android:targetPackage="app.rem"
+            android:targetClass="app.rem.ui.MainActivity" />
+    </shortcut>
+</shortcuts>
