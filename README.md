@@ -4,6 +4,7 @@
 
 ## Docs
 - [Competitor analysis](docs/COMPETITOR_ANALYSIS.md): feature comparison of the top Android reminder apps
+- [Full feature catalog](docs/FEATURES.md): everything Rem can remind you about, and how
 - [Product spec](docs/PRODUCT_SPEC.md): full feature list, tech stack, data model and roadmap
 
 ## Why Rem?
