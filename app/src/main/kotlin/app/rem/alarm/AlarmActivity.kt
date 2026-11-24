@@ -97,7 +97,7 @@ class AlarmActivity : ComponentActivity() {
         val id = intent.getLongExtra(AlarmScheduler.EXTRA_ID, -1)
         lifecycleScope.launch {
             reminder = container.repository.get(id)
-            if (reminder == null) finish() else startRinging()
+            if (reminder == null) finish()
         }
 
         setContent {
@@ -118,31 +118,12 @@ class AlarmActivity : ComponentActivity() {
     }
 
     private fun act(block: suspend () -> Unit) {
+        RingService.stop(this)
         stopRinging()
         lifecycleScope.launch {
             block()
             finish()
         }
-    }
-
-    private fun startRinging() {
-        // Your chosen sound for this category, or the phone's alarm sound.
-        val custom = reminder?.category?.let { container.settings.value.sounds[it] }?.let(android.net.Uri::parse)
-        val uri = custom ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM) ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
-        ringtone = RingtoneManager.getRingtone(this, uri)?.apply {
-            audioAttributes = AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ALARM).setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build()
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) isLooping = true
-            play()
-        }
-        vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            getSystemService(VibratorManager::class.java).defaultVibrator
-        } else {
-            @Suppress("DEPRECATION")
-            getSystemService(Vibrator::class.java)
-        }
-        vibrator?.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 700, 500), 0))
-        // Stop the sound after a minute; the nag alarm will bring it back.
-        handler.postDelayed({ stopRinging() }, 60_000)
     }
 
     private fun stopRinging() {

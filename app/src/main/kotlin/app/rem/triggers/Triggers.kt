@@ -199,12 +199,13 @@ object Triggers {
     /** Shows the reminder now (respecting a cooldown so a flapping signal doesn't spam). */
     suspend fun fire(context: Context, r: Reminder, text: String, cooldownMinutes: Long = 6 * 60) {
         if (r.status != Status.ACTIVE) return
+        val listText = r.extras[app.rem.data.SpacesService.LIST_ID]?.toLongOrNull()?.let { context.container.spaces.listText(it) ?: return }
         val now = LocalDateTime.now()
         val last = r.extras[LAST_FIRED]?.let { runCatching { LocalDateTime.parse(it) }.getOrNull() }
         if (last != null && Duration.between(last, now).toMinutes() < cooldownMinutes) return
         val c = context.container
         c.repository.upsert(r.copy(extras = r.extras + (LAST_FIRED to now.toString())))
-        c.notifier.show(r, isNag = false, ring = true, textOverride = text)
+        c.notifier.show(r, isNag = false, ring = true, textOverride = listText?.let { "You're at the shop.\n" + it.substringAfter('\n') } ?: text)
     }
 
     fun firedToday(r: Reminder, today: LocalDate = LocalDate.now()): Boolean =

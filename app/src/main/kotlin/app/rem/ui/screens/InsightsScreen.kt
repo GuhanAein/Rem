@@ -57,7 +57,7 @@ fun InsightsScreen(onBack: () -> Unit, onFixReliability: () -> Unit, onYear: () 
     val c = Rem.colors
     val scope = rememberCoroutineScope()
     val today = LocalDate.now()
-    val active by remember { context.container.repository.observeActive() }.collectAsState(emptyList())
+    val active = remember { context.container.repository.observeActive() }.collectAsState(emptyList()).value
     val log by remember { context.container.database.log().observeSince(today.minusDays(120).atStartOfDay().toString()) }.collectAsState(emptyList())
     val events = log.map { it.toEvent() }
     val report by produceState<Reliability.Report?>(null) {

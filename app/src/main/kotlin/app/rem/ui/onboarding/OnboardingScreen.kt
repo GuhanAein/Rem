@@ -7,6 +7,13 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.runtime.collectAsState
+import androidx.compose.material.icons.rounded.WbSunny
+import androidx.compose.material.icons.rounded.Bedtime
+import androidx.compose.material.icons.rounded.WaterDrop
+import app.rem.container
+import app.rem.ui.components.Caption
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -85,7 +92,7 @@ val SLIDES = listOf(
 fun editorial(text: String): androidx.compose.ui.text.AnnotatedString = androidx.compose.ui.text.buildAnnotatedString {
     text.split('*').forEachIndexed { i, part ->
         if (i % 2 == 1) {
-            withStyle(androidx.compose.ui.text.SpanStyle(fontStyle = androidx.compose.ui.text.font.FontStyle.Italic, color = Color(0xFFD9BC83))) { append(part) }
+            withStyle(androidx.compose.ui.text.SpanStyle(fontStyle = androidx.compose.ui.text.font.FontStyle.Italic, color = app.rem.ui.theme.RemPalette.current.gold)) { append(part) }
         } else {
             append(part)
         }
@@ -95,7 +102,10 @@ fun editorial(text: String): androidx.compose.ui.text.AnnotatedString = androidx
 @Composable
 fun OnboardingScreen(onFinished: () -> Unit) {
     val context = LocalContext.current
-    val pager = rememberPagerState { SLIDES.size + 1 }
+    // Tour slides, then "make it yours", then permissions.
+    val prefsPage = SLIDES.size
+    val permsPage = SLIDES.size + 1
+    val pager = rememberPagerState { SLIDES.size + 2 }
     val scope = rememberCoroutineScope()
     var status by remember { mutableStateOf(readSetupStatus(context)) }
     LifecycleResumeEffect(Unit) {
@@ -110,6 +120,11 @@ fun OnboardingScreen(onFinished: () -> Unit) {
             val offset = (pager.currentPage - page) + pager.currentPageOffsetFraction
             if (page < SLIDES.size) {
                 SlidePage(page, SLIDES[page], offset)
+            } else if (page == prefsPage) {
+                Column(
+                    Modifier.fillMaxSize().background(c.canvas).statusBarsPadding().verticalScroll(rememberScrollState())
+                        .padding(horizontal = 16.dp).padding(top = 48.dp, bottom = 160.dp),
+                ) { PreferencesContent() }
             } else {
                 Column(
                     Modifier.fillMaxSize().background(c.canvas).statusBarsPadding().verticalScroll(rememberScrollState())
@@ -134,7 +149,7 @@ fun OnboardingScreen(onFinished: () -> Unit) {
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                repeat(SLIDES.size + 1) { i ->
+                repeat(SLIDES.size + 2) { i ->
                     val on = pager.currentPage == i
                     val w by animateDpAsState(if (on) 18.dp else 7.dp, label = "dot")
                     val col by animateColorAsState(if (on) c.gold else c.tertiaryLabel, label = "dotc")
@@ -142,16 +157,20 @@ fun OnboardingScreen(onFinished: () -> Unit) {
                 }
             }
             Spacer(Modifier.height(20.dp))
-            val last = pager.currentPage == SLIDES.size
+            val last = pager.currentPage == permsPage
             PrimaryButton(
                 text = if (last) "Get Started" else "Continue",
                 onClick = {
-                    if (last) { setOnboarded(context); onFinished() } else scope.launch { pager.animateScrollToPage(pager.currentPage + 1) }
+                    if (last) {
+                        setOnboarded(context)
+                        scope.launch { runCatching { app.rem.jobs.DailyJobs.schedule(context) } }
+                        onFinished()
+                    } else scope.launch { pager.animateScrollToPage(pager.currentPage + 1) }
                 },
                 modifier = Modifier.fillMaxWidth(),
             )
             Box(Modifier.height(48.dp), contentAlignment = Alignment.Center) {
-                if (!last) TextButton(onClick = { scope.launch { pager.animateScrollToPage(SLIDES.size) } }) { Text("Skip", color = c.secondaryLabel) }
+                if (pager.currentPage < prefsPage) TextButton(onClick = { scope.launch { pager.animateScrollToPage(prefsPage) } }) { Text("Skip", color = c.secondaryLabel) }
             }
         }
     }
@@ -223,6 +242,94 @@ private fun VoiceDemo() {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Token("Tomorrow \u00B7 6:00 PM", Icons.Rounded.CalendarMonth, tint = c.gold)
             Token("Task", null)
+        }
+    }
+}
+
+private val WAKE_TIMES = listOf(6, 7, 8, 9).map { java.time.LocalTime.of(it, 0) }
+private val BED_TIMES = listOf(java.time.LocalTime.of(22, 0), java.time.LocalTime.of(22, 30), java.time.LocalTime.of(23, 0), java.time.LocalTime.of(23, 30), java.time.LocalTime.of(0, 0))
+
+/** Theme, daily rhythm and the gentle daily helpers, chosen once. The theme previews live. */
+@Composable
+fun PreferencesContent() {
+    val context = LocalContext.current
+    val c = Rem.colors
+    val s by context.container.settings.state.collectAsState()
+    fun update(t: (app.rem.data.AppSettings) -> app.rem.data.AppSettings) = context.container.settings.update(t)
+
+    Text(editorial("Make it\n*yours.*"), style = MaterialTheme.typography.displaySmall, color = c.label, modifier = Modifier.padding(start = 4.dp))
+    Spacer(Modifier.height(8.dp))
+    Text("You can change all of this later in Settings.", style = MaterialTheme.typography.bodyLarge, color = c.secondaryLabel, modifier = Modifier.padding(start = 4.dp))
+
+    Caption("Look")
+    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        app.rem.data.ThemeMode.entries.forEach { m ->
+            ThemeSwatch(m, selected = s.theme == m, modifier = Modifier.weight(1f)) { update { it.copy(theme = m) } }
+        }
+    }
+
+    Caption("Your day")
+    GroupedCard {
+        TimeChoice("I wake up around", WAKE_TIMES, s.wakeTime) { t -> update { it.copy(wakeTime = t) } }
+        RowDivider()
+        TimeChoice("I go to bed around", BED_TIMES, s.bedtime) { t -> update { it.copy(bedtime = t) } }
+    }
+
+    Caption("Little helpers")
+    GroupedCard {
+        app.rem.ui.components.SwitchRow("Morning card", s.morningCardEnabled, { on -> update { it.copy(morningCardEnabled = on) } },
+            icon = Icons.Rounded.WbSunny, iconColor = c.secondaryLabel, subtitle = "Today at a glance, every morning")
+        RowDivider(54.dp)
+        app.rem.ui.components.SwitchRow("Bedtime summary", s.bedtimeSummary, { on -> update { it.copy(bedtimeSummary = on) } },
+            icon = Icons.Rounded.Bedtime, iconColor = c.secondaryLabel, subtitle = "What's left today, and one tap to move it to tomorrow")
+        RowDivider(54.dp)
+        app.rem.ui.components.SwitchRow("Water reminders", s.waterEnabled, { on -> update { it.copy(waterEnabled = on) } },
+            icon = Icons.Rounded.WaterDrop, iconColor = c.secondaryLabel, subtitle = "${s.waterGlasses} glasses, spread across your day")
+    }
+}
+
+@Composable
+private fun ThemeSwatch(mode: app.rem.data.ThemeMode, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
+    val c = Rem.colors
+    val (bg, card, ink) = when (mode) {
+        app.rem.data.ThemeMode.DARK -> Triple(app.rem.ui.theme.Noir.canvas, app.rem.ui.theme.Noir.surface, app.rem.ui.theme.Noir.label)
+        app.rem.data.ThemeMode.LIGHT -> Triple(app.rem.ui.theme.Ivory.canvas, app.rem.ui.theme.Ivory.surface, app.rem.ui.theme.Ivory.label)
+        app.rem.data.ThemeMode.SYSTEM -> Triple(app.rem.ui.theme.Noir.canvas, app.rem.ui.theme.Ivory.surface, app.rem.ui.theme.Noir.label)
+    }
+    val border by animateColorAsState(if (selected) c.gold else c.separator, label = "swatch")
+    Column(
+        modifier.clip(RoundedCornerShape(20.dp)).border(if (selected) 2.dp else 1.dp, border, RoundedCornerShape(20.dp)).clickable(onClick = onClick).padding(10.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Box(Modifier.fillMaxWidth().height(86.dp).clip(RoundedCornerShape(12.dp)).background(bg).padding(8.dp)) {
+            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(card).padding(8.dp)) {
+                Box(Modifier.width(34.dp).height(5.dp).clip(CircleShape).background(ink.copy(alpha = 0.8f)))
+                Spacer(Modifier.height(6.dp))
+                Box(Modifier.width(50.dp).height(4.dp).clip(CircleShape).background(ink.copy(alpha = 0.35f)))
+                Spacer(Modifier.height(6.dp))
+                Box(Modifier.width(26.dp).height(4.dp).clip(CircleShape).background(Color(0xFFD9BC83)))
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        Text(mode.label, style = MaterialTheme.typography.labelMedium, color = if (selected) c.label else c.secondaryLabel)
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun TimeChoice(title: String, options: List<java.time.LocalTime>, selected: java.time.LocalTime, onPick: (java.time.LocalTime) -> Unit) {
+    val c = Rem.colors
+    Column(Modifier.padding(horizontal = 18.dp, vertical = 14.dp)) {
+        Text(title, style = MaterialTheme.typography.bodyLarge, color = c.label)
+        Spacer(Modifier.height(10.dp))
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            options.forEach { t ->
+                val on = t == selected
+                Text(
+                    app.rem.ui.format.formatTime(t), style = MaterialTheme.typography.labelLarge, color = if (on) c.onIvory else c.label,
+                    modifier = Modifier.clip(RoundedCornerShape(50)).background(if (on) c.ivory else c.fill).clickable { onPick(t) }.padding(horizontal = 14.dp, vertical = 8.dp),
+                )
+            }
         }
     }
 }

@@ -59,3 +59,7 @@ fun LockScreen(onUnlock: () -> Unit) {
         PrimaryButton("Unlock", onClick = onUnlock, modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().navigationBarsPadding().padding(24.dp))
     }
 }
+
+/** Re-lock only after Rem has been in the background for a while (not for pickers and dialogs). */
+fun shouldRelock(backgroundedAtMillis: Long?, nowMillis: Long, graceMillis: Long = 60_000): Boolean =
+    backgroundedAtMillis != null && nowMillis - backgroundedAtMillis > graceMillis

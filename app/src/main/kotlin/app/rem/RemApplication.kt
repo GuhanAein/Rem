@@ -22,6 +22,7 @@ class AppContainer(context: Context, val clock: Clock = Clock.systemDefaultZone(
     val notifier = Notifier(appContext)
     val scheduler = AlarmScheduler(appContext, planner)
     val settings = app.rem.data.Settings(appContext)
+    val water = app.rem.data.WaterLog(appContext, clock)
     val service = ReminderService(
         repository, planner, scheduler, notifier,
         logDao = this.database.log(),
@@ -36,8 +37,10 @@ class AppContainer(context: Context, val clock: Clock = Clock.systemDefaultZone(
         onChanged = {
             app.rem.widget.Widgets.refresh(appContext)
             app.rem.triggers.Triggers.sync(appContext)
+            app.rem.jobs.Countdown.sync(appContext)
         },
     )
+    val spaces = app.rem.data.SpacesService(appContext, this.database, service, repository, settings, clock)
 }
 
 class RemApplication : Application() {

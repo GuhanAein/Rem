@@ -84,6 +84,7 @@ data class EditUiState(
     val firstStep: String = "",
     val isPrivate: Boolean = false,
     val extras: Map<String, String> = emptyMap(),
+    val space: app.rem.core.model.Space = app.rem.core.model.Space.PERSONAL,
 ) {
     /** "Deadline mode": gentle notes a week and 3 days before, a firm alarm on the day. */
     val escalating: Boolean get() = alertOffsets.containsAll(DEADLINE_OFFSETS) && style == AlertStyle.ALARM
@@ -136,6 +137,7 @@ class EditViewModel(private val container: AppContainer, private val id: Long, p
         firstStep = r.firstStep.orEmpty(),
         isPrivate = r.isPrivate,
         extras = r.extras,
+        space = r.space,
     )
 
     fun update(transform: (EditUiState) -> EditUiState) = _state.update(transform)
@@ -175,6 +177,8 @@ class EditViewModel(private val container: AppContainer, private val id: Long, p
             firstStep = s.firstStep.trim().ifEmpty { null },
             isPrivate = s.isPrivate,
             extras = s.extras,
+            space = s.space,
+            workStatus = if (s.space == app.rem.core.model.Space.WORK) (s.original?.workStatus ?: "TODO") else null,
         ).let { r ->
             // Random-time reminders start at their next random slot.
             val rt = s.randomTimes
@@ -216,6 +220,7 @@ class EditViewModel(private val container: AppContainer, private val id: Long, p
         when (kind) {
             Kind.SUBSCRIPTION -> s.copy(kind = kind, category = Category.BILL, repeat = if (s.repeat.freq == null) RepeatForm(Freq.MONTHLY) else s.repeat, alertOffsets = setOf(3 * 1440, 0))
             Kind.WARRANTY -> s.copy(kind = kind, category = Category.DOCUMENT, alertOffsets = setOf(30 * 1440, 7 * 1440))
+            Kind.DOCUMENT -> s.copy(kind = kind, category = Category.DOCUMENT, alertOffsets = setOf(30 * 1440, 7 * 1440, 1440, 0), date = s.date ?: LocalDate.now(container.clock).plusMonths(6))
             Kind.CAR_SERVICE -> s.copy(kind = kind, category = Category.VEHICLE, alertOffsets = setOf(7 * 1440, 1440))
             Kind.PLANT -> s.copy(kind = kind, category = Category.HOME, repeat = if (s.repeat.freq == null) RepeatForm(Freq.DAILY, interval = 3) else s.repeat)
             Kind.LEND, Kind.BORROW -> s.copy(kind = kind, date = s.date ?: LocalDate.now(container.clock).plusWeeks(2))

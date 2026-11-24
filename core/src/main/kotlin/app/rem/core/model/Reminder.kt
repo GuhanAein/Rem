@@ -23,7 +23,13 @@ enum class Kind(val label: String) {
     RETURN("Return"),
     HABIT("Habit"),
     CHORE("Chore"),
+    DOCUMENT("Document"),
+    /** Internal: the reminder attached to a shopping list (at the shop, or on a day). */
+    SHOPPING_LIST("Shopping list"),
 }
+
+/** Personal reminders and work tasks live apart; work respects work hours. */
+enum class Space { PERSONAL, WORK }
 
 /** Allowed days and hours for a reminder to fire. */
 data class TimeWindow(val days: Set<DayOfWeek>, val start: LocalTime, val end: LocalTime) {
@@ -142,6 +148,12 @@ data class Reminder(
     val personId: Long? = null,
     /** Kind-specific data: photo URI, odometer, trial end, item lent, ... */
     val extras: Map<String, String> = emptyMap(),
+    val space: Space = Space.PERSONAL,
+    val projectId: Long? = null,
+    /** Work status name (TODO, DOING, WAITING, DONE). */
+    val workStatus: String? = null,
+    /** "Waiting on Ravi": who you're waiting for. */
+    val waitingOn: String? = null,
 ) {
     val isRecurring: Boolean get() = !recurrence.isNullOrBlank()
 

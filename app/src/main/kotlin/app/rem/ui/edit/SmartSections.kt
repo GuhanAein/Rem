@@ -30,6 +30,8 @@ import androidx.compose.material.icons.rounded.AddAPhoto
 import androidx.compose.material.icons.rounded.Category
 import androidx.compose.material.icons.rounded.EventBusy
 import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.Timer
+import androidx.compose.material.icons.rounded.WorkOutline
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Sensors
 import androidx.compose.material.icons.rounded.Shuffle
@@ -135,6 +137,25 @@ fun KindSection(state: EditUiState, onKind: (Kind) -> Unit, onExtra: (String, St
                     RowDivider(54.dp)
                     FieldRow("Product", state.extras["product"].orEmpty(), "e.g. Washing machine") { onExtra("product", it) }
                 }
+            }
+            Kind.DOCUMENT -> {
+                var pickType by remember { mutableStateOf(false) }
+                RowDivider(54.dp)
+                SettingRow("Document", icon = Icons.Rounded.Category, iconColor = c.secondaryLabel, value = state.extras["docType"] ?: "Choose", onClick = { pickType = true })
+                RowDivider(54.dp)
+                FieldRow("Whose", state.extras["holder"].orEmpty(), "e.g. Me, Amma") { onExtra("holder", it) }
+                RowDivider(54.dp)
+                FieldRow("Number", state.extras[app.rem.core.life.Documents.NUMBER].orEmpty(), "Optional") { onExtra(app.rem.core.life.Documents.NUMBER, it) }
+                RowDivider(54.dp)
+                PhotoRow("Front photo", state.extras[PHOTO]) { onExtra(PHOTO, it) }
+                RowDivider(54.dp)
+                PhotoRow("Back photo", state.extras[app.rem.core.life.Documents.PHOTO_BACK]) { onExtra(app.rem.core.life.Documents.PHOTO_BACK, it) }
+                Text("Set the expiry date above. Rem warns you early enough to renew.", style = MaterialTheme.typography.bodySmall, color = c.secondaryLabel, modifier = Modifier.padding(start = 18.dp, end = 18.dp, bottom = 14.dp))
+                if (pickType) OptionSheet("Document", app.rem.core.life.Documents.TYPES.map { it to it }, { it == state.extras["docType"] }, { t ->
+                    onExtra("docType", t)
+                    onChange { s -> s.copy(alertOffsets = (app.rem.core.life.Documents.leadDays(t).map { it * 1440 } + 0).toSet(), title = s.title.ifBlank { "$t expires" }) }
+                    pickType = false
+                }, { pickType = false })
             }
             Kind.CAR_SERVICE -> {
                 RowDivider(54.dp)
@@ -317,8 +338,17 @@ fun MoreSection(state: EditUiState, onChange: ((EditUiState) -> EditUiState) -> 
         RowDivider(54.dp)
         FieldRow("Tiny first step", state.firstStep, "e.g. Open the tax portal", icon = Icons.Rounded.PlayArrow) { v -> onChange { it.copy(firstStep = v) } }
         RowDivider(54.dp)
+        SwitchRow("Work task", state.space == app.rem.core.model.Space.WORK, { on -> onChange { it.copy(space = if (on) app.rem.core.model.Space.WORK else app.rem.core.model.Space.PERSONAL) } },
+            icon = Icons.Rounded.WorkOutline, iconColor = c.secondaryLabel,
+            subtitle = if (state.space == app.rem.core.model.Space.WORK) "Lives in Work and respects work hours" else null)
+        RowDivider(54.dp)
         SwitchRow("Private", state.isPrivate, { on -> onChange { it.copy(isPrivate = on) } }, icon = Icons.Rounded.Lock, iconColor = c.secondaryLabel,
             subtitle = if (state.isPrivate) "Hidden behind app lock; notifications say “Private reminder”" else null)
+        RowDivider(54.dp)
+        val pinned = state.extras[app.rem.jobs.Countdown.PIN] == "true"
+        SwitchRow("Countdown on lock screen", pinned, { on -> onChange { s -> s.copy(extras = if (on) s.extras + (app.rem.jobs.Countdown.PIN to "true") else s.extras - app.rem.jobs.Countdown.PIN) } },
+            icon = Icons.Rounded.Timer, iconColor = c.secondaryLabel,
+            subtitle = if (pinned) "A live timer stays in your notifications and on the lock screen until it's due" else null)
     }
     Spacer(Modifier.height(12.dp))
     SecondaryButton("Remind someone else", onClick = {

@@ -21,6 +21,9 @@ import app.rem.core.model.Category
 import app.rem.core.model.Priority
 
 val Category.color: Color
+    get() = base.let { if (app.rem.ui.theme.RemPalette.isLight) it.copy().let { c -> androidx.compose.ui.graphics.lerp(c, Color(0xFF1A1916), 0.42f) } else it }
+
+private val Category.base: Color
     get() = when (this) {
         Category.TASK -> Color(0xFFB9C3F5)
         Category.WORK -> Color(0xFFAEB8C8)
@@ -54,7 +57,7 @@ val Category.icon: ImageVector
         Category.SHOPPING -> Icons.Rounded.ShoppingBag
     }
 
-fun categoryColorArgb(category: Category): Int = category.color.toArgb()
+fun categoryColorArgb(category: Category): Int = category.base.toArgb()
 
 val Priority.color: Color?
     get() = when (this) {

@@ -68,7 +68,7 @@ class MotionRecordTest {
 
     private fun content(block: @androidx.compose.runtime.Composable () -> Unit) {
         rule.mainClock.autoAdvance = false
-        rule.setContent { CompositionLocalProvider(LocalAmbientMotion provides true) { RemTheme(darkTheme = false) { block() } } }
+        rule.setContent { CompositionLocalProvider(LocalAmbientMotion provides true) { RemTheme(darkTheme = true) { block() } } }
     }
 
     @androidx.compose.runtime.Composable

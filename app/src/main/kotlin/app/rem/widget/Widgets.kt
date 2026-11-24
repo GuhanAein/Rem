@@ -59,6 +59,7 @@ private val Danger = ColorProvider(day = Color(0xFFEC7B6B), night = Color(0xFFEC
 private val Ivory = ColorProvider(day = Color(0xFFF3F0E8), night = Color(0xFFF3F0E8))
 private val Ink = ColorProvider(day = Color(0xFF0B0B0D), night = Color(0xFF0B0B0D))
 private val White = Ink
+private val Raised = ColorProvider(day = Color(0xFF1E1E22), night = Color(0xFF1E1E22))
 
 private fun launch(context: Context, action: String? = null, openId: Long? = null): Intent =
     Intent(context, MainActivity::class.java).apply {
@@ -72,7 +73,7 @@ data class WidgetRow(val id: Long, val title: String, val time: String, val late
 /** Overdue first, then today, then the next few upcoming. */
 internal fun widgetRows(active: List<Reminder>, now: LocalDateTime, max: Int = 8): Pair<Int, List<WidgetRow>> {
     val today = now.toLocalDate()
-    val dated = active.filter { it.dueAt != null && !it.isPrivate }.sortedBy { it.dueAt }
+    val dated = active.filter { it.dueAt != null && !it.isPrivate && it.kind != app.rem.core.model.Kind.SHOPPING_LIST }.sortedBy { it.dueAt }
     val dueToday = dated.count { it.dueAt!!.toLocalDate() <= today }
     val rows = dated.take(max).map { r ->
         val due = r.dueAt!!
@@ -166,6 +167,12 @@ class QuickAddWidget : GlanceAppWidget() {
                 }
                 Spacer(GlanceModifier.width(8.dp))
                 Box(
+                    GlanceModifier.size(52.dp).cornerRadius(26.dp).background(Raised)
+                        .clickable(actionStartActivity(launch(context, MainActivity.ACTION_PASTE))),
+                    contentAlignment = Alignment.Center,
+                ) { Image(ImageProvider(R.drawable.ic_widget_paste), "Paste as a reminder", colorFilter = ColorFilter.tint(Label), modifier = GlanceModifier.size(22.dp)) }
+                Spacer(GlanceModifier.width(8.dp))
+                Box(
                     GlanceModifier.size(52.dp).cornerRadius(26.dp).background(Accent)
                         .clickable(actionStartActivity(launch(context, MainActivity.ACTION_VOICE))),
                     contentAlignment = Alignment.Center,
@@ -194,9 +201,134 @@ class QuickAddWidgetReceiver : GlanceAppWidgetReceiver() {
     override val glanceAppWidget: GlanceAppWidget = QuickAddWidget()
 }
 
+/** Shopping list widget: the first list's open items, tick to buy. */
+class ShoppingWidget : GlanceAppWidget() {
+    override val sizeMode = SizeMode.Exact
+
+    override suspend fun provideGlance(context: Context, id: GlanceId) {
+        val db = context.container.database.shopping()
+        val list = db.lists().firstOrNull()
+        val items = list?.let { l -> db.items(l.id).map { it.toModel() }.filter { !it.checked }.sortedBy { it.name.lowercase() } }.orEmpty()
+        provideContent {
+            Column(GlanceModifier.fillMaxSize().background(Card).cornerRadius(26.dp).padding(14.dp)) {
+                Row(GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Column(GlanceModifier.defaultWeight().clickable(actionStartActivity(launch(context, MainActivity.ACTION_SHOPPING)))) {
+                        Text((list?.name ?: "Shopping").uppercase(), style = TextStyle(color = Accent, fontSize = 10.sp, fontWeight = FontWeight.Medium))
+                        Text("${items.size} to buy", style = TextStyle(color = Label, fontSize = 22.sp, fontFamily = androidx.glance.text.FontFamily.Serif))
+                    }
+                    Box(
+                        GlanceModifier.size(36.dp).cornerRadius(18.dp).background(Ivory).clickable(actionStartActivity(launch(context, MainActivity.ACTION_SHOPPING))),
+                        contentAlignment = Alignment.Center,
+                    ) { Image(ImageProvider(R.drawable.ic_widget_add), "Add items", colorFilter = ColorFilter.tint(White), modifier = GlanceModifier.size(20.dp)) }
+                }
+                Spacer(GlanceModifier.height(6.dp))
+                if (items.isEmpty()) {
+                    Box(GlanceModifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text("Nothing to buy.", style = TextStyle(color = Secondary, fontSize = 16.sp, fontFamily = androidx.glance.text.FontFamily.Serif))
+                    }
+                } else {
+                    LazyColumn {
+                        items(items, itemId = { it.id }) { item ->
+                            Row(
+                                GlanceModifier.fillMaxWidth().padding(vertical = 5.dp)
+                                    .clickable(actionRunCallback<BuyAction>(actionParametersOf(BuyAction.KEY_ID to item.id))),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Image(ImageProvider(R.drawable.widget_ring), "Bought", modifier = GlanceModifier.size(20.dp))
+                                Spacer(GlanceModifier.width(10.dp))
+                                Text(
+                                    item.name + (item.quantity?.let { q -> "  ·  " + (if (q == q.toLong().toDouble()) q.toLong().toString() else q.toString()) + (item.unit?.let { " $it" } ?: "") } ?: ""),
+                                    maxLines = 1, style = TextStyle(color = Label, fontSize = 15.sp),
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+class BuyAction : ActionCallback {
+    override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
+        val id = parameters[KEY_ID] ?: return
+        val item = context.container.database.shopping().item(id)?.toModel() ?: return
+        context.container.spaces.toggle(item)
+        Widgets.refresh(context)
+    }
+
+    companion object {
+        val KEY_ID = ActionParameters.Key<Long>("itemId")
+    }
+}
+
+/** Work widget: what's next, in work-status order (doing, then to do by due time). */
+class WorkWidget : GlanceAppWidget() {
+    override val sizeMode = SizeMode.Exact
+
+    override suspend fun provideGlance(context: Context, id: GlanceId) {
+        val tasks = workNext(context.container.repository.allActive(), LocalDateTime.now())
+        provideContent {
+            Column(GlanceModifier.fillMaxSize().background(Card).cornerRadius(26.dp).padding(14.dp)) {
+                Row(GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Column(GlanceModifier.defaultWeight().clickable(actionStartActivity(launch(context, MainActivity.ACTION_WORK)))) {
+                        Text("WORK  ·  NEXT UP", style = TextStyle(color = Accent, fontSize = 10.sp, fontWeight = FontWeight.Medium))
+                        Text("${tasks.size} open", style = TextStyle(color = Label, fontSize = 22.sp, fontFamily = androidx.glance.text.FontFamily.Serif))
+                    }
+                    Box(
+                        GlanceModifier.size(36.dp).cornerRadius(18.dp).background(Ivory).clickable(actionStartActivity(launch(context, MainActivity.ACTION_WORK))),
+                        contentAlignment = Alignment.Center,
+                    ) { Image(ImageProvider(R.drawable.ic_widget_add), "Add a task", colorFilter = ColorFilter.tint(White), modifier = GlanceModifier.size(20.dp)) }
+                }
+                Spacer(GlanceModifier.height(6.dp))
+                if (tasks.isEmpty()) {
+                    Box(GlanceModifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text("Inbox zero.", style = TextStyle(color = Secondary, fontSize = 16.sp, fontFamily = androidx.glance.text.FontFamily.Serif))
+                    }
+                } else {
+                    LazyColumn {
+                        items(tasks.take(8), itemId = { it.id }) { t ->
+                            Row(GlanceModifier.fillMaxWidth().padding(vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Image(
+                                    ImageProvider(R.drawable.widget_ring), "Mark done",
+                                    modifier = GlanceModifier.size(20.dp).clickable(actionRunCallback<CompleteAction>(actionParametersOf(CompleteAction.KEY_ID to t.id))),
+                                )
+                                Spacer(GlanceModifier.width(10.dp))
+                                Column(GlanceModifier.defaultWeight().clickable(actionStartActivity(launch(context, openId = t.id)))) {
+                                    Text(t.title, maxLines = 1, style = TextStyle(color = Label, fontSize = 15.sp))
+                                    val sub = listOfNotNull(
+                                        if (t.workStatus == "DOING") "In progress" else null,
+                                        t.dueAt?.let { d -> if (d.toLocalDate() == LocalDateTime.now().toLocalDate()) formatTime(d.toLocalTime()) else formatDay(d.toLocalDate()) },
+                                    ).joinToString(" · ")
+                                    if (sub.isNotEmpty()) Text(sub, maxLines = 1, style = TextStyle(color = if (t.dueAt?.isBefore(LocalDateTime.now()) == true) Danger else Secondary, fontSize = 12.sp))
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** Open work tasks: in progress first, then by due time; tasks waiting on others are left out. */
+internal fun workNext(active: List<Reminder>, now: LocalDateTime): List<Reminder> = active
+    .filter { it.space == app.rem.core.model.Space.WORK && it.workStatus != "DONE" && it.workStatus != "WAITING" }
+    .sortedWith(compareBy<Reminder>({ if (it.workStatus == "DOING") 0 else 1 }, { it.dueAt ?: LocalDateTime.MAX }))
+
+class ShoppingWidgetReceiver : GlanceAppWidgetReceiver() {
+    override val glanceAppWidget: GlanceAppWidget = ShoppingWidget()
+}
+
+class WorkWidgetReceiver : GlanceAppWidgetReceiver() {
+    override val glanceAppWidget: GlanceAppWidget = WorkWidget()
+}
+
 object Widgets {
     /** Refresh widgets after any data change. Never fails the caller. */
     suspend fun refresh(context: Context) {
         runCatching { TodayWidget().updateAll(context) }
+        runCatching { ShoppingWidget().updateAll(context) }
+        runCatching { WorkWidget().updateAll(context) }
     }
 }

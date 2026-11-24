@@ -78,6 +78,7 @@ import app.rem.ui.motion.pressScale
 import app.rem.ui.motion.rememberHaptics
 import app.rem.ui.motion.sharedBounds
 import app.rem.ui.theme.Rem
+import app.rem.ui.theme.RemPalette
 import app.rem.ui.theme.Serif
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -90,8 +91,13 @@ import kotlin.math.roundToInt
 /** A charcoal surface lit by a fine highlight along its top edge. The basic building block. */
 fun Modifier.noirSurface(shape: Shape = RoundedCornerShape(22.dp), elevated: Boolean = false): Modifier = this
     .clip(shape)
-    .background(if (elevated) Color(0xFF1B1B1F) else Color(0xFF131316))
-    .border(1.dp, Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.09f), Color.White.copy(alpha = 0.025f))), shape)
+    .background(RemPalette.current.let { if (elevated) it.elevated else it.surface })
+    .border(
+        1.dp,
+        if (RemPalette.current.isDark) Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.09f), Color.White.copy(alpha = 0.025f)))
+        else Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.05f), Color.Black.copy(alpha = 0.09f))),
+        shape,
+    )
 
 /** Card that holds a group of rows. */
 @Composable
@@ -132,8 +138,8 @@ fun CategoryGlyph(category: Category, modifier: Modifier = Modifier, size: Dp = 
         modifier
             .size(size)
             .clip(RoundedCornerShape(size * 0.3f))
-            .background(if (selected) tint.copy(alpha = 0.22f) else Color(0xFF1E1E22))
-            .border(1.dp, if (selected) tint.copy(alpha = 0.6f) else Color.White.copy(alpha = 0.05f), RoundedCornerShape(size * 0.3f)),
+            .background(if (selected) tint.copy(alpha = 0.22f) else Rem.colors.fill)
+            .border(1.dp, if (selected) tint.copy(alpha = 0.6f) else Rem.colors.highlight.copy(alpha = 0.05f), RoundedCornerShape(size * 0.3f)),
         contentAlignment = Alignment.Center,
     ) {
         Icon(category.icon, contentDescription = category.label, tint = tint, modifier = Modifier.size(size * 0.5f))
@@ -168,7 +174,7 @@ fun CheckCircle(@Suppress("UNUSED_PARAMETER") color: Color, checked: Boolean, on
                 val a = (draw / 0.4f).coerceIn(0f, 1f)
                 val b = ((draw - 0.4f) / 0.6f).coerceIn(0f, 1f)
                 val sw = 1.9.dp.toPx()
-                val ink = Color(0xFF0B0B0D)
+                val ink = if (RemPalette.current.isDark) Color(0xFF0B0B0D) else Color.White
                 drawLine(ink, p1, Offset(p1.x + (p2.x - p1.x) * a, p1.y + (p2.y - p1.y) * a), sw, StrokeCap.Round)
                 if (b > 0f) drawLine(ink, p2, Offset(p2.x + (p3.x - p2.x) * b, p2.y + (p3.y - p2.y) * b), sw, StrokeCap.Round)
             }
@@ -193,7 +199,7 @@ fun PrimaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifi
             .heightIn(min = 54.dp)
             .clip(RoundedCornerShape(27.dp))
             .background(bg)
-            .clickable(interaction, ripple(color = Color.Black), enabled = enabled, role = Role.Button) { haptics.tick(); onClick() }
+            .clickable(interaction, ripple(color = RemPalette.current.onIvory), enabled = enabled, role = Role.Button) { haptics.tick(); onClick() }
             .padding(horizontal = 24.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center,
@@ -291,7 +297,7 @@ fun RemSwitch(checked: Boolean, onChange: (Boolean) -> Unit) {
     val track by animateColorAsState(if (checked) c.gold else c.fill, tween(180), label = "track")
     Box(
         Modifier.size(width = 48.dp, height = 28.dp).clip(RoundedCornerShape(14.dp)).background(track)
-            .border(1.dp, Color.White.copy(alpha = if (checked) 0f else 0.06f), RoundedCornerShape(14.dp))
+            .border(1.dp, c.highlight.copy(alpha = if (checked) 0f else 0.06f), RoundedCornerShape(14.dp))
             .clickable(role = Role.Switch) { haptics.tick(); onChange(!checked) }
             .padding(3.dp),
     ) {
@@ -555,5 +561,5 @@ fun <T> OptionSheet(
 
 @Composable
 fun SheetHandle() {
-    Box(Modifier.padding(top = 10.dp, bottom = 14.dp).size(width = 36.dp, height = 4.dp).clip(RoundedCornerShape(2.dp)).background(Color.White.copy(alpha = 0.18f)))
+    Box(Modifier.padding(top = 10.dp, bottom = 14.dp).size(width = 36.dp, height = 4.dp).clip(RoundedCornerShape(2.dp)).background(RemPalette.current.highlight.copy(alpha = 0.18f)))
 }

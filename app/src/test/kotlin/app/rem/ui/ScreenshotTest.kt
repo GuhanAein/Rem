@@ -64,26 +64,22 @@ class ScreenshotTest {
         Reminder(id = 21, title = "Morning run", dueAt = today.atTime(6, 30), completedAt = java.time.Instant.now()),
     )
 
-    @Test fun home_light() = captureRoboImage("$out/home_light.png") {
-        StaticTheme(false) { HomeContent(buildHomeState(sampleReminders(today), done, now, SmartList.TODAY, null, false)) }
-    }
-
     @Test fun home_collections() = captureRoboImage("$out/home_all.png") {
         StaticTheme(true) { HomeContent(buildHomeState(sampleReminders(today), done, now, SmartList.ALL, null, false), listState = androidx.compose.foundation.lazy.LazyListState(firstVisibleItemIndex = 9)) }
     }
 
     @Test fun home_scheduled() = captureRoboImage("$out/home_scheduled.png") {
-        StaticTheme(false) { HomeContent(buildHomeState(sampleReminders(today), done, now, SmartList.SCHEDULED, null, false)) }
+        StaticTheme(true) { HomeContent(buildHomeState(sampleReminders(today), done, now, SmartList.SCHEDULED, null, false)) }
     }
 
     @Test fun home_empty() = captureRoboImage("$out/home_empty.png") {
-        StaticTheme(false) { HomeContent(buildHomeState(emptyList(), emptyList(), now, SmartList.TODAY, null, false)) }
+        StaticTheme(true) { HomeContent(buildHomeState(emptyList(), emptyList(), now, SmartList.TODAY, null, false)) }
     }
 
     @Test fun quick_add() = captureRoboImage("$out/quick_add.png") {
         val text = "Pay rent every 1st at 9am"
         val parsed = QuickAddParser(clock).parse(text)
-        StaticTheme(false) {
+        StaticTheme(true) {
             Sheet {
                 QuickAddContent(
                     text = text, onTextChange = {}, parsed = parsed, category = parsed.category, due = parsed.dueAt, alarm = false,
@@ -95,20 +91,20 @@ class ScreenshotTest {
 
     @Test fun voice_listening() = captureRoboImage("$out/voice_listening.png") {
         val heard = "Remind me to call mom tomorrow at 6"
-        StaticTheme(false) {
+        StaticTheme(true) {
             Sheet { VoiceContent(VoicePhase.LISTENING, heard, null, 0.6f, QuickAddParser(clock).parse(heard), now, {}, {}, {}) }
         }
     }
 
     @Test fun voice_done() = captureRoboImage("$out/voice_done.png") {
         val heard = "Remind me to take my vitamins every day at 8 in the morning"
-        StaticTheme(false) {
+        StaticTheme(true) {
             Sheet { VoiceContent(VoicePhase.DONE, heard, null, 0f, QuickAddParser(clock).parse(heard), now, {}, {}, {}) }
         }
     }
 
     @Test fun edit() = captureRoboImage("$out/edit.png") {
-        StaticTheme(false) {
+        StaticTheme(true) {
             EditContent(
                 state = EditUiState(
                     loaded = true, isNew = false, title = "Take vitamin D", notes = "After breakfast",
@@ -130,15 +126,15 @@ class ScreenshotTest {
     }
 
     @Test fun onboarding_everything() = captureRoboImage("$out/onboarding_1.png") {
-        StaticTheme(false) { SlidePage(0, SLIDES[0]) }
+        StaticTheme(true) { SlidePage(0, SLIDES[0]) }
     }
 
     @Test fun onboarding_voice() = captureRoboImage("$out/onboarding_3.png") {
-        StaticTheme(false) { SlidePage(2, SLIDES[2]) }
+        StaticTheme(true) { SlidePage(2, SLIDES[2]) }
     }
 
     @Test fun setup() = captureRoboImage("$out/setup.png") {
-        StaticTheme(false) {
+        StaticTheme(true) {
             Column(Modifier.fillMaxSize().background(Rem.colors.canvas).verticalScroll(rememberScrollState()).padding(16.dp).padding(top = 40.dp)) {
                 PermissionsContent(SetupStatus(notifications = true, exactAlarms = false, fullScreen = true, batteryUnrestricted = false), {}, {}, {}, {}, tip = "On Samsung: Settings › Battery › Background usage limits › add Rem to “Never sleeping apps”.")
             }

@@ -8,8 +8,11 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
-    entities = [ReminderEntity::class, LogEntity::class, FiredEntity::class, PersonEntity::class, PlaceEntity::class],
-    version = 2,
+    entities = [
+        ReminderEntity::class, LogEntity::class, FiredEntity::class, PersonEntity::class, PlaceEntity::class,
+        ShoppingListEntity::class, ShoppingItemEntity::class, WishEntity::class, ProjectEntity::class,
+    ],
+    version = 3,
     exportSchema = true,
 )
 abstract class RemDatabase : RoomDatabase() {
@@ -18,6 +21,9 @@ abstract class RemDatabase : RoomDatabase() {
     abstract fun fired(): FiredDao
     abstract fun people(): PersonDao
     abstract fun places(): PlaceDao
+    abstract fun shopping(): ShoppingDao
+    abstract fun wishes(): WishDao
+    abstract fun projects(): ProjectDao
 
     companion object {
         /** v1 -> v2: smarter reminders, logs, people and places. Existing reminders are kept. */
@@ -44,8 +50,25 @@ abstract class RemDatabase : RoomDatabase() {
             }
         }
 
+        /** v2 -> v3: Shopping, Wishlist and Work spaces. */
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                listOf(
+                    "ALTER TABLE reminders ADD COLUMN `space` TEXT NOT NULL DEFAULT 'PERSONAL'",
+                    "ALTER TABLE reminders ADD COLUMN `projectId` INTEGER",
+                    "ALTER TABLE reminders ADD COLUMN `workStatus` TEXT",
+                    "ALTER TABLE reminders ADD COLUMN `waitingOn` TEXT",
+                    "CREATE TABLE IF NOT EXISTS `shopping_lists` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL, `sortOrder` INTEGER NOT NULL, `remindWhenLong` INTEGER NOT NULL)",
+                    "CREATE TABLE IF NOT EXISTS `shopping_items` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `listId` INTEGER NOT NULL, `name` TEXT NOT NULL, `quantity` REAL, `unit` TEXT, `aisle` TEXT NOT NULL, `price` REAL, `note` TEXT NOT NULL, `checked` INTEGER NOT NULL, `everyDays` INTEGER, `lastBought` TEXT, `runningLow` INTEGER NOT NULL, `timesBought` INTEGER NOT NULL)",
+                    "CREATE INDEX IF NOT EXISTS `index_shopping_items_listId` ON `shopping_items` (`listId`)",
+                    "CREATE TABLE IF NOT EXISTS `wishes` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `title` TEXT NOT NULL, `url` TEXT, `photo` TEXT, `price` REAL, `targetPrice` REAL, `saved` REAL NOT NULL, `priority` INTEGER NOT NULL, `notes` TEXT NOT NULL, `forPersonId` INTEGER, `occasionDate` TEXT, `status` TEXT NOT NULL, `addedOn` TEXT NOT NULL, `askOn` TEXT)",
+                    "CREATE TABLE IF NOT EXISTS `projects` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL, `color` INTEGER NOT NULL, `archived` INTEGER NOT NULL)",
+                ).forEach(db::execSQL)
+            }
+        }
+
         fun create(context: Context): RemDatabase =
-            Room.databaseBuilder(context, RemDatabase::class.java, "rem.db").addMigrations(MIGRATION_1_2).build()
+            Room.databaseBuilder(context, RemDatabase::class.java, "rem.db").addMigrations(MIGRATION_1_2, MIGRATION_2_3).build()
 
         fun inMemory(context: Context): RemDatabase =
             Room.inMemoryDatabaseBuilder(context, RemDatabase::class.java).allowMainThreadQueries().build()

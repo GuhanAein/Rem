@@ -15,7 +15,16 @@ enum class Accent(val label: String, val argb: Long, val deep: Long) {
     EMERALD("Emerald", 0xFF8FCDB0, 0xFF5E9C80),
 }
 
+enum class ThemeMode(val label: String) { SYSTEM("Match phone"), DARK("Dark"), LIGHT("Light") }
+
 data class AppSettings(
+    val theme: ThemeMode = ThemeMode.DARK,
+    /** A note at bedtime listing what's left from today, with "Move to tomorrow". */
+    val bedtimeSummary: Boolean = true,
+    val waterEnabled: Boolean = false,
+    val waterGlasses: Int = 8,
+    /** Offer a reminder when a bill arrives by SMS. */
+    val smsBills: Boolean = false,
     val accent: Accent = Accent.GOLD,
     val bedtime: LocalTime = LocalTime.of(22, 30),
     val wakeTime: LocalTime = LocalTime.of(7, 0),
@@ -32,6 +41,11 @@ data class AppSettings(
     val accountabilityPhone: String = "",
     /** Custom ringtone URI per category (alarm-style reminders). */
     val sounds: Map<Category, String> = emptyMap(),
+    val workHours: app.rem.core.spaces.WorkHours = app.rem.core.spaces.WorkHours.DEFAULT,
+    val respectWorkHours: Boolean = true,
+    /** Day of month you get paid, for wishlist budgeting. */
+    val payday: Int? = null,
+    val saleDates: List<java.time.LocalDate> = emptyList(),
 ) {
     fun panicActive(now: Instant): Boolean = panicUntil?.isAfter(now) == true
 }
@@ -50,6 +64,11 @@ class Settings(context: Context) {
     }
 
     private fun read(): AppSettings = AppSettings(
+        theme = prefs.getString("theme", null)?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() } ?: ThemeMode.DARK,
+        bedtimeSummary = prefs.getBoolean("bedtimeSummary", true),
+        waterEnabled = prefs.getBoolean("water", false),
+        waterGlasses = prefs.getInt("waterGlasses", 8),
+        smsBills = prefs.getBoolean("smsBills", false),
         accent = prefs.getString("accent", null)?.let { runCatching { Accent.valueOf(it) }.getOrNull() } ?: Accent.GOLD,
         bedtime = prefs.time("bedtime", LocalTime.of(22, 30)),
         wakeTime = prefs.time("wakeTime", LocalTime.of(7, 0)),
@@ -65,10 +84,19 @@ class Settings(context: Context) {
         accountabilityName = prefs.getString("buddyName", "").orEmpty(),
         accountabilityPhone = prefs.getString("buddyPhone", "").orEmpty(),
         sounds = Category.entries.mapNotNull { c -> prefs.getString("sound_${c.name}", null)?.let { c to it } }.toMap(),
+        workHours = app.rem.core.spaces.WorkHours.decode(prefs.getString("workHours", null)) ?: app.rem.core.spaces.WorkHours.DEFAULT,
+        respectWorkHours = prefs.getBoolean("respectWorkHours", true),
+        payday = prefs.getInt("payday", 0).takeIf { it in 1..31 },
+        saleDates = prefs.getString("saleDates", "").orEmpty().split(',').mapNotNull { runCatching { java.time.LocalDate.parse(it) }.getOrNull() },
     )
 
     private fun write(s: AppSettings) {
         prefs.edit().apply {
+            putString("theme", s.theme.name)
+            putBoolean("bedtimeSummary", s.bedtimeSummary)
+            putBoolean("water", s.waterEnabled)
+            putInt("waterGlasses", s.waterGlasses)
+            putBoolean("smsBills", s.smsBills)
             putString("accent", s.accent.name)
             putString("bedtime", s.bedtime.toString())
             putString("wakeTime", s.wakeTime.toString())
@@ -84,6 +112,10 @@ class Settings(context: Context) {
             putString("buddyName", s.accountabilityName)
             putString("buddyPhone", s.accountabilityPhone)
             Category.entries.forEach { c -> s.sounds[c]?.let { putString("sound_${c.name}", it) } ?: remove("sound_${c.name}") }
+            putString("workHours", s.workHours.encode())
+            putBoolean("respectWorkHours", s.respectWorkHours)
+            putInt("payday", s.payday ?: 0)
+            putString("saleDates", s.saleDates.joinToString(","))
         }.apply()
     }
 

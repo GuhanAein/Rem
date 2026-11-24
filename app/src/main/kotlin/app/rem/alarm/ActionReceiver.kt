@@ -27,6 +27,7 @@ class ActionReceiver : BroadcastReceiver() {
 
     internal suspend fun handle(context: Context, action: String?, id: Long, snooze: String?) {
         val service = context.container.service
+        RingService.stop(context)
         when (action) {
             ACTION_DONE -> service.complete(id)
             ACTION_SNOOZE -> service.snooze(id, snooze?.let { runCatching { SnoozePreset.valueOf(it) }.getOrNull() } ?: SnoozePreset.MIN_15)
