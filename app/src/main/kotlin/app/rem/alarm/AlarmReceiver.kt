@@ -46,7 +46,14 @@ class AlarmReceiver : BroadcastReceiver() {
             return
         }
 
-        c.notifier.show(reminder, isNag = nagCount > 0, ring = isDue)
+        if (isDue && reminder.alertStyle == app.rem.core.model.AlertStyle.ALARM) {
+            // Ring like a real alarm: looping sound on the alarm stream, screen on or off.
+            // If Android refuses (e.g. an inexact fallback alarm), fall back to the alarm notification.
+            runCatching { RingService.start(context, id, isNag = nagCount > 0) }
+                .onFailure { c.notifier.show(reminder, isNag = nagCount > 0, ring = true) }
+        } else {
+            c.notifier.show(reminder, isNag = nagCount > 0, ring = isDue)
+        }
 
         // Nag only once the reminder is actually due (not for "1 day before" heads-ups).
         val dueInstant = reminder.dueAt?.let { ReminderPlanner.toInstant(it, zone) }

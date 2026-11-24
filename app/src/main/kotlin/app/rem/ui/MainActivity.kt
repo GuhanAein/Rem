@@ -74,10 +74,18 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
         }
     }
 
+    private var backgroundedAt: Long? = null
+
     override fun onStop() {
         super.onStop()
-        // Lock again when Rem leaves the screen.
-        if (!isChangingConfigurations) unlocked = false
+        if (!isChangingConfigurations) backgroundedAt = System.currentTimeMillis()
+    }
+
+    override fun onStart() {
+        super.onStart()
+        // Pickers (photos, ringtones, files) briefly leave Rem; only a real absence re-locks it.
+        if (app.rem.ui.lock.shouldRelock(backgroundedAt, System.currentTimeMillis())) unlocked = false
+        backgroundedAt = null
     }
 
     override fun onNewIntent(intent: Intent) {
