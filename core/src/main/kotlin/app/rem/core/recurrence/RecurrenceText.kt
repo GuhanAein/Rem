@@ -25,11 +25,13 @@ fun RecurrenceRule.describe(): String {
         byMonthDay.isNotEmpty() -> " on the " + byMonthDay.joinToString(", ") { if (it == -1) "last day" else ordinalWord(it) }
         else -> ""
     }
+    val times = if (byHour.isNotEmpty()) " \u00B7 ${byHour.size}\u00D7 a day" else ""
     val end = when {
         count != null -> ", $count times"
+        until != null -> " until ${until.toLocalDate().dayOfMonth} ${until.month.getDisplayName(TextStyle.SHORT, Locale.ENGLISH)}"
         else -> ""
     }
-    return unit + detail + end
+    return unit + detail + times + end
 }
 
 private fun ordinalWord(n: Int): String = when {

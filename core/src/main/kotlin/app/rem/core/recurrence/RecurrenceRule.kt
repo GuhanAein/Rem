@@ -24,6 +24,9 @@ data class RecurrenceRule(
     val byMonth: List<Int> = emptyList(),
     val count: Int? = null,
     val until: LocalDateTime? = null,
+    /** Several times a day: BYHOUR=8,14,20 (with BYMINUTE, or the anchor's minute). */
+    val byHour: List<Int> = emptyList(),
+    val byMinute: List<Int> = emptyList(),
 ) {
     init {
         require(interval >= 1) { "INTERVAL must be >= 1" }
@@ -35,6 +38,8 @@ data class RecurrenceRule(
         if (byDay.isNotEmpty()) add("BYDAY=" + byDay.joinToString(",") { (it.ordinal?.toString() ?: "") + DAY_CODES.getValue(it.day) })
         if (byMonthDay.isNotEmpty()) add("BYMONTHDAY=" + byMonthDay.joinToString(","))
         if (byMonth.isNotEmpty()) add("BYMONTH=" + byMonth.joinToString(","))
+        if (byHour.isNotEmpty()) add("BYHOUR=" + byHour.joinToString(","))
+        if (byMinute.isNotEmpty()) add("BYMINUTE=" + byMinute.joinToString(","))
         count?.let { add("COUNT=$it") }
         until?.let { add("UNTIL=" + it.format(UNTIL_FORMAT)) }
     }.joinToString(";")
@@ -45,13 +50,16 @@ data class RecurrenceRule(
      */
     fun next(start: LocalDateTime, after: LocalDateTime, occurrencesSoFar: Int = 0): LocalDateTime? {
         if (count != null && occurrencesSoFar >= count) return null
-        val time = start.toLocalTime()
+        val times = timesOfDay(start.toLocalTime())
         var date = maxOf(start.toLocalDate(), after.toLocalDate())
         repeat(MAX_DAYS_SEARCHED) {
             if (matches(start.toLocalDate(), date)) {
-                val candidate = date.atTime(time)
-                if (candidate.isAfter(after) && !candidate.isBefore(start)) {
-                    return if (until != null && candidate.isAfter(until)) null else candidate
+                for (time in times) {
+                    val candidate = date.atTime(time)
+                    if (candidate.isAfter(after) && !candidate.isBefore(start.toLocalDate().atStartOfDay())) {
+                        if (byHour.isEmpty() && candidate.isBefore(start)) continue
+                        return if (until != null && candidate.isAfter(until)) null else candidate
+                    }
                 }
             }
             date = date.plusDays(1)
@@ -87,6 +95,10 @@ data class RecurrenceRule(
             years % interval == 0L && monthMatches && dayInMonthOk(anchor, date)
         }
     }
+
+    private fun timesOfDay(anchor: java.time.LocalTime): List<java.time.LocalTime> =
+        if (byHour.isEmpty()) listOf(anchor)
+        else byHour.flatMap { h -> byMinute.ifEmpty { listOf(anchor.minute) }.map { m -> java.time.LocalTime.of(h, m) } }.sorted()
 
     private fun monthOk(date: LocalDate) = byMonth.isEmpty() || date.monthValue in byMonth
 
@@ -139,6 +151,8 @@ data class RecurrenceRule(
                 byMonth = parts["BYMONTH"]?.split(',')?.map { it.toInt() } ?: emptyList(),
                 count = parts["COUNT"]?.toInt(),
                 until = parts["UNTIL"]?.let { LocalDateTime.parse(it.removeSuffix("Z"), UNTIL_FORMAT) },
+                byHour = parts["BYHOUR"]?.split(',')?.map { it.toInt().also { h -> require(h in 0..23) } } ?: emptyList(),
+                byMinute = parts["BYMINUTE"]?.split(',')?.map { it.toInt().also { m -> require(m in 0..59) } } ?: emptyList(),
             )
         }
 

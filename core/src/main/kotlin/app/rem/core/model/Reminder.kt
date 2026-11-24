@@ -3,12 +3,78 @@ package app.rem.core.model
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneId
+import java.time.DayOfWeek
+import java.time.LocalTime
 
 enum class AlertStyle { NOTIFICATION, ALARM }
 
 enum class Priority { NONE, LOW, MEDIUM, HIGH }
 
 enum class Status { ACTIVE, DONE }
+
+enum class Kind(val label: String) {
+    STANDARD("Reminder"),
+    SUBSCRIPTION("Subscription"),
+    WARRANTY("Warranty"),
+    CAR_SERVICE("Car service"),
+    PLANT("Plant"),
+    LEND("Lent"),
+    BORROW("Borrowed"),
+    RETURN("Return"),
+    HABIT("Habit"),
+    CHORE("Chore"),
+}
+
+/** Allowed days and hours for a reminder to fire. */
+data class TimeWindow(val days: Set<DayOfWeek>, val start: LocalTime, val end: LocalTime) {
+    init { require(days.isNotEmpty()) { "A window needs at least one day" } }
+
+    fun contains(t: LocalDateTime): Boolean = t.dayOfWeek in days && !t.toLocalTime().isBefore(start) && !t.toLocalTime().isAfter(end)
+
+    /** The earliest moment at or after [t] inside the window. */
+    fun adjust(t: LocalDateTime): LocalDateTime {
+        if (contains(t)) return t
+        var d = t.toLocalDate()
+        if (t.dayOfWeek in days && t.toLocalTime().isBefore(start)) return d.atTime(start)
+        repeat(8) {
+            d = d.plusDays(1)
+            if (d.dayOfWeek in days) return d.atTime(start)
+        }
+        return t
+    }
+
+    fun encode(): String = days.sorted().joinToString(",") { it.value.toString() } + "|" + start + "|" + end
+
+    companion object {
+        val WEEKDAYS: Set<DayOfWeek> = setOf(DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY, DayOfWeek.THURSDAY, DayOfWeek.FRIDAY)
+        fun businessHours() = TimeWindow(WEEKDAYS, LocalTime.of(10, 0), LocalTime.of(16, 0))
+        fun decode(s: String?): TimeWindow? = s?.split('|')?.takeIf { it.size == 3 }?.let { (d, a, b) ->
+            runCatching { TimeWindow(d.split(',').map { DayOfWeek.of(it.toInt()) }.toSet(), LocalTime.parse(a), LocalTime.parse(b)) }.getOrNull()
+        }
+    }
+}
+
+/** "N times a day at random moments between start and end." */
+data class RandomTimes(val perDay: Int, val start: LocalTime, val end: LocalTime) {
+    init { require(perDay in 1..24 && end.isAfter(start)) }
+    fun encode(): String = "$perDay|$start|$end"
+
+    companion object {
+        fun decode(s: String?): RandomTimes? = s?.split('|')?.takeIf { it.size == 3 }?.let { (n, a, b) ->
+            runCatching { RandomTimes(n.toInt(), LocalTime.parse(a), LocalTime.parse(b)) }.getOrNull()
+        }
+    }
+}
+
+enum class Trigger(val label: String, val timeBased: Boolean = false) {
+    CHARGING_TONIGHT("When I plug in tonight"),
+    WAKE_UP("When I wake up", timeBased = true),
+    BEDTIME("Before I sleep", timeBased = true),
+    HEADPHONES("When headphones connect"),
+    LEAVE_HOME("When I leave home"),
+    ARRIVE_PLACE("When I arrive at a place"),
+    LEAVE_PLACE("When I leave a place"),
+}
 
 /**
  * "Remind me of everything": each category carries smart defaults so a medicine
@@ -58,6 +124,24 @@ data class Reminder(
     val occurrenceCount: Int = 0,
     val createdAt: Instant = Instant.EPOCH,
     val completedAt: Instant? = null,
+    /** What kind of thing this is; drives special screens (subscriptions, warranties, lending...). */
+    val kind: Kind = Kind.STANDARD,
+    /** Only fire inside this window ("call the bank on weekdays 10-4"). */
+    val window: TimeWindow? = null,
+    /** Fire N times a day at random moments inside a window ("drink water"). */
+    val randomTimes: RandomTimes? = null,
+    /** Fire on an event instead of (or as well as) a clock time. */
+    val trigger: Trigger? = null,
+    /** When completed, ask for the follow-up ("Book doctor" -> "Doctor visit"). */
+    val followUp: String? = null,
+    /** A 2-minute first step for big tasks. */
+    val firstStep: String? = null,
+    /** Hidden behind the app lock. */
+    val isPrivate: Boolean = false,
+    /** Linked person (birthdays, lending, relationship nudges). */
+    val personId: Long? = null,
+    /** Kind-specific data: photo URI, odometer, trial end, item lent, ... */
+    val extras: Map<String, String> = emptyMap(),
 ) {
     val isRecurring: Boolean get() = !recurrence.isNullOrBlank()
 
