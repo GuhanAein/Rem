@@ -99,4 +99,18 @@ class SpacesServiceTest {
         val id = c.service.save(Reminder(title = "Groceries", dueAt = thursday, recurrence = "FREQ=WEEKLY;BYDAY=SA"))
         assertEquals(java.time.DayOfWeek.SATURDAY, c.repository.get(id)!!.dueAt!!.dayOfWeek)
     }
+
+    @Test fun spokenShoppingListBecomesSeparateItems() = runBlocking {
+        val id = groceries()
+        assertEquals(4, s.addItems(id, "milk eggs and two bread basmati rice", spoken = true))
+        assertEquals(setOf("Milk", "Eggs", "Bread", "Basmati rice"), c.database.shopping().items(id).map { it.name }.toSet())
+    }
+
+    @Test fun spokenWorkTaskKeepsItsTime() = runBlocking {
+        val id = s.addTask("send the deck to Ravi on Thursday at 3", null)
+        val t = c.repository.get(id)!!
+        assertEquals("send the deck to Ravi", t.title)
+        assertEquals(java.time.DayOfWeek.THURSDAY, t.dueAt!!.dayOfWeek)
+        assertEquals(15, t.dueAt!!.hour)
+    }
 }

@@ -30,6 +30,7 @@ import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.CardGiftcard
 import androidx.compose.material.icons.rounded.Event
 import androidx.compose.material.icons.rounded.Link
+import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.Payments
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material3.DatePicker
@@ -97,6 +98,7 @@ fun WishlistScreen() {
     var editing by remember { mutableStateOf<Wish?>(null) }
     var sheet by remember { mutableStateOf<String?>(null) }
     var tab by remember { mutableStateOf(0) }
+    var voice by remember { mutableStateOf(false) }
     val today = LocalDate.now()
     val wanted = wishes.filter { it.status == WishStatus.WANTED }
     val ask = wanted.filter { Wishes.coolOffDue(it, today) }
@@ -110,6 +112,8 @@ fun WishlistScreen() {
                         Spacer(Modifier.height(8.dp))
                         Text(editorial("Want *less,*\nlove *more.*"), style = MaterialTheme.typography.displaySmall, color = c.label)
                     }
+                    RoundAction(Icons.Rounded.Mic, "Say a wish", highlighted = true) { voice = true }
+                    Spacer(Modifier.width(8.dp))
                     RoundAction(Icons.Rounded.Add, "Add wish") { editing = Wish(title = "") }
                 }
                 val value = wanted.sumOf { it.price ?: 0.0 }
@@ -159,6 +163,21 @@ fun WishlistScreen() {
                     value = settings.saleDates.filter { !it.isBefore(today) }.sorted().take(2).joinToString(", ") { formatDay(it) }.ifEmpty { "Add" }, onClick = { sheet = "sale" })
             }
         }
+    }
+
+    if (voice) {
+        app.rem.ui.voice.VoiceInputSheet(
+            caption = "Add to wishlist", example = "Sony headphones for 25,000", actionLabel = "Review",
+            onConfirm = { text -> editing = Wishes.fromSpoken(text); voice = false },
+            onDismiss = { voice = false },
+            preview = { text ->
+                val w = remember(text) { Wishes.fromSpoken(text) }
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    app.rem.ui.components.Token(w.title, Icons.Rounded.CardGiftcard, tint = c.label)
+                    w.price?.let { app.rem.ui.components.Token(Money.format(it), Icons.Rounded.Payments, tint = c.gold) }
+                }
+            },
+        )
     }
 
     editing?.let { w ->

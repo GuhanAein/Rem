@@ -217,7 +217,7 @@ fun VoiceContent(
 
 /** Thin gold bars that rise with your voice and settle to a calm line in silence. */
 @Composable
-private fun Waveform(active: Boolean, level: Float, modifier: Modifier = Modifier) {
+internal fun Waveform(active: Boolean, level: Float, modifier: Modifier = Modifier) {
     val c = Rem.colors
     val ambient = app.rem.ui.motion.LocalAmbientMotion.current
     val t = if (ambient && active) {
@@ -248,7 +248,7 @@ private fun Waveform(active: Boolean, level: Float, modifier: Modifier = Modifie
 }
 
 @Composable
-private fun MicButton(listening: Boolean, onClick: () -> Unit) {
+internal fun MicButton(listening: Boolean, onClick: () -> Unit) {
     val c = Rem.colors
     val haptics = app.rem.ui.motion.rememberHaptics()
     val interaction = androidx.compose.runtime.remember { androidx.compose.foundation.interaction.MutableInteractionSource() }

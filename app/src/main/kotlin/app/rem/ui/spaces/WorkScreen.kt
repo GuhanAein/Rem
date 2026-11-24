@@ -29,6 +29,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material.icons.rounded.Schedule
+import androidx.compose.material.icons.rounded.WorkOutline
 import androidx.compose.material.icons.rounded.WbTwilight
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
@@ -103,6 +104,7 @@ fun WorkScreen(onOpen: (Long) -> Unit) {
     var askWho by remember { mutableStateOf<Reminder?>(null) }
     var sheet by remember { mutableStateOf<String?>(null) }
     var newProject by remember { mutableStateOf(false) }
+    var voice by remember { mutableStateOf(false) }
     val haptics = rememberHaptics()
 
     val tasks = all.filter { it.space == Space.WORK && (project == null || it.projectId == project) }
@@ -161,11 +163,7 @@ fun WorkScreen(onOpen: (Long) -> Unit) {
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
-                Box(
-                    Modifier.size(42.dp).clip(CircleShape).background(if (input.isNotBlank()) c.ivory else c.elevated)
-                        .clickable(enabled = input.isNotBlank()) { haptics.tick(); scope.launch { spaces.addTask(input, project); input = "" } },
-                    contentAlignment = Alignment.Center,
-                ) { Icon(Icons.Rounded.ArrowUpward, "Add task", tint = if (input.isNotBlank()) c.onIvory else c.tertiaryLabel, modifier = Modifier.size(20.dp)) }
+                SendOrMic(input.isNotBlank(), onSend = { haptics.tick(); scope.launch { spaces.addTask(input, project); input = "" } }, onMic = { voice = true })
             }
         }
         item { SegmentedControl(listOf("List", "Board"), if (board) 1 else 0, { board = it == 1 }, Modifier.padding(top = 14.dp)) }
@@ -211,6 +209,21 @@ fun WorkScreen(onOpen: (Long) -> Unit) {
                 }
             }
         }
+    }
+
+    if (voice) {
+        app.rem.ui.voice.VoiceInputSheet(
+            caption = "New work task", example = "send the deck to Ravi on Thursday at 3", actionLabel = "Add task",
+            onConfirm = { text -> scope.launch { spaces.addTask(text, project) }; voice = false },
+            onDismiss = { voice = false },
+            preview = { text ->
+                val parsed = remember(text) { app.rem.core.parser.QuickAddParser(java.time.Clock.systemDefaultZone()).parse(text) }
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    app.rem.ui.components.Token(parsed.title, Icons.Rounded.WorkOutline, tint = c.label)
+                    parsed.dueAt?.let { app.rem.ui.components.Token(app.rem.ui.format.describeDue(it), Icons.Rounded.Schedule, tint = c.gold) }
+                }
+            },
+        )
     }
 
     acting?.let { t ->

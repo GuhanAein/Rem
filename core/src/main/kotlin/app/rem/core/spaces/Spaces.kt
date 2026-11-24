@@ -67,6 +67,34 @@ object ShoppingParser {
             .filter { it.isNotEmpty() }
             .map(::parseOne)
 
+    /**
+     * Speech has no commas: "milk eggs and two bread basmati rice". Splits before quantities and
+     * between words that are each a known grocery, while keeping phrases like "basmati rice" whole.
+     */
+    fun splitSpoken(text: String): List<Triple<String, Double?, String?>> {
+        if (text.contains(',') || text.contains('\n') || text.contains(';')) return split(text)
+        val numberWords = words.keys.filter { !it.contains(' ') }.toSet()
+        val tokens = text.trim().split(Regex("\\s+"))
+        val chunks = mutableListOf<MutableList<String>>()
+        fun isQty(t: String) = t.lowercase() in numberWords || t.first().isDigit()
+        fun isUnit(t: String) = t.lowercase() in UNITS || Regex("""^\d+(\.\d+)?($unitAlt)$""", RegexOption.IGNORE_CASE).matches(t)
+        for (tok in tokens) {
+            val lower = tok.lowercase()
+            if (lower == "and" || lower == "also" || lower == "plus") { chunks += mutableListOf<String>(); continue }
+            val cur = chunks.lastOrNull()
+            fun known(t: String) = !isQty(t) && !isUnit(t) && Aisles.of(t) != Aisle.OTHER
+            // An item ends at its grocery word ("bread", "rice"); words before one ("basmati") describe the next item.
+            val startNew = cur == null ||
+                (cur.isNotEmpty() && cur.any(::known) && !isUnit(tok) && !knownPhrase("${cur.last()} $tok")) ||
+                (cur.isNotEmpty() && isQty(tok) && cur.any { !isQty(it) && !isUnit(it) })
+            if (startNew) chunks += mutableListOf(tok) else cur!!.add(tok)
+        }
+        return chunks.filter { it.isNotEmpty() }.map { parseOne(it.joinToString(" ")) }
+    }
+
+    /** Two-word items that should never be split ("ice cream", "dog food"). */
+    private fun knownPhrase(p: String) = p.lowercase() in setOf("ice cream", "dog food", "cat food", "face wash", "garbage bags", "garbage bag", "soap bar", "peanut butter", "coconut oil", "green chillies", "brown bread")
+
     fun parseOne(raw: String): Triple<String, Double?, String?> {
         var t = raw.trim()
         words.entries.sortedByDescending { it.key.length }.firstOrNull { t.lowercase().startsWith(it.key + " ") }?.let { (w, n) ->
@@ -213,6 +241,14 @@ object Wishes {
         if (payday == null) return false
         val day = payday.coerceAtMost(today.lengthOfMonth())
         return today.dayOfMonth == day
+    }
+
+    /** "Sony headphones for 25,000 rupees", "new shoes under 15000". */
+    fun fromSpoken(text: String): Wish {
+        val m = Regex("""\s+(?:for|under|around|about|at|costs?|priced at)\s+(?:rs\.?\s*|₹\s*)?([\d,]+(?:\.\d+)?)\s*(?:rupees|rs|bucks|inr)?\s*$""", RegexOption.IGNORE_CASE).find(text.trim())
+        val price = m?.let { Money.parse(it.groupValues[1]) }
+        val title = (if (m != null) text.trim().substring(0, m.range.first) else text.trim()).trim().replaceFirstChar { it.uppercase() }
+        return Wish(title = title, price = price)
     }
 
     /** What a shopping app shares: usually "Title https://link" or the link alone. */

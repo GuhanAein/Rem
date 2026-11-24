@@ -52,9 +52,9 @@ class SpacesService(
     }
 
     /** Adds "milk, eggs, 2 bread" as separate items; re-adds existing ones instead of duplicating. */
-    suspend fun addItems(listId: Long, text: String): Int {
+    suspend fun addItems(listId: Long, text: String, spoken: Boolean = false): Int {
         val existing = db.shopping().items(listId).map { it.toModel() }
-        val parsed = ShoppingParser.split(text)
+        val parsed = if (spoken) ShoppingParser.splitSpoken(text) else ShoppingParser.split(text)
         parsed.forEach { (name, qty, unit) ->
             val match = existing.firstOrNull { it.name.equals(name, ignoreCase = true) }
             val item = match?.copy(checked = false, quantity = qty ?: match.quantity, unit = unit ?: match.unit)

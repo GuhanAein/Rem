@@ -6,8 +6,17 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.background
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ApplicationProvider
 import app.rem.RemApplication
+import app.rem.core.spaces.ShoppingParser
+import app.rem.ui.components.Token
+import app.rem.ui.theme.Rem
+import app.rem.ui.voice.VoiceInputContent
+import app.rem.ui.voice.VoicePhase
 import app.rem.core.spaces.Wish
 import app.rem.core.spaces.WorkStatus
 import app.rem.ui.home.HomeContent
@@ -108,4 +117,27 @@ class SpacesScreenshotTest {
             WithTabs(Tab.TODAY) { HomeContent(buildHomeState(sampleReminders(today), emptyList(), LocalDateTime.of(today, LocalTime.of(9, 41)), SmartList.TODAY, null, false)) }
         }
     }
+
+    @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+    @Test fun voice_shopping() {
+        capture("$out/voice_shopping.png") {
+            StaticTheme(true) {
+                androidx.compose.foundation.layout.Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.6f))) {
+                    androidx.compose.foundation.layout.Box(Modifier.align(Alignment.BottomCenter).clip(androidx.compose.foundation.shape.RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)).background(Rem.colors.surface).padding(top = 28.dp)) {
+                        VoiceInputContent(
+                            caption = "Add to Groceries", example = "", actionLabel = "Add to list",
+                            phase = VoicePhase.DONE, transcript = "milk eggs and two bread basmati rice", error = null, level = 0f,
+                            onMic = {}, onConfirm = {}, onRetry = {},
+                            preview = { text ->
+                                androidx.compose.foundation.layout.FlowRow(horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(6.dp)) {
+                                    ShoppingParser.splitSpoken(text).forEach { (n, q, _) -> Token(listOfNotNull(n, q?.toInt()?.toString()).joinToString(" \u00B7 "), null, tint = Rem.colors.gold) }
+                                }
+                            },
+                        )
+                    }
+                }
+            }
+        }
+    }
 }
+

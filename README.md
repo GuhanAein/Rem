@@ -108,6 +108,13 @@ Tap the mic (in the app, the widget, or by long-pressing the app icon) and say i
 "Remind me to call mom tomorrow at 6 pm", "Take my vitamins every day at 8 in the morning", "Pay rent on the first of every month", "Leave for the station at quarter to seven".
 The words appear live and Rem shows what it understood (day, time, repeat, category) before you add it. Speech-to-text uses the phone's built-in recogniser, preferring on-device recognition. The understanding is Rem's own rule-based parser, so no AI API is involved.
 
+Voice works in every space as well. When the input field is empty, its send button turns into a mic:
+- **Shopping:** "milk eggs and two bread basmati rice" adds four separate items (Milk, Eggs, Bread ×2, Basmati rice). Pauses, "and", "also" and quantities mark where items split; known two-word items such as "ice cream" stay together.
+- **Work:** "send the deck to Ravi on Thursday at 3" becomes a task due on Thursday at 3 pm.
+- **Wishlist:** "Sony headphones for 25,000" opens a wish already filled in with the name and price.
+
+![](docs/screenshots/voice_shopping.png)
+
 ## Widgets
 - **Today** (resizable): today's count, overdue and upcoming reminders, a tick circle to complete one, and buttons to add or say a new reminder.
 - **Quick Add** (2×1): a "New" button and a mic.

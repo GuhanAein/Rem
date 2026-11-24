@@ -25,6 +25,23 @@ class SpacesTest {
         assertNull(items[0].second)
     }
 
+    @Test fun spokenListsWithoutCommas() {
+        val items = ShoppingParser.splitSpoken("milk eggs and two bread basmati rice onions tomatoes and 1 kg sugar")
+        assertEquals(listOf("Milk", "Eggs", "Bread", "Basmati rice", "Onions", "Tomatoes", "Sugar"), items.map { it.first })
+        assertEquals(2.0, items[2].second)
+        assertEquals(1.0 to "kg", items[6].second to items[6].third)
+        // Typed lists with commas behave exactly as before.
+        assertEquals(ShoppingParser.split("milk, 2 bread"), ShoppingParser.splitSpoken("milk, 2 bread"))
+    }
+
+    @Test fun spokenWishWithPrice() {
+        val w = Wishes.fromSpoken("Sony noise cancelling headphones for 25,000 rupees")
+        assertEquals("Sony noise cancelling headphones", w.title)
+        assertEquals(25000.0, w.price)
+        assertEquals("Kindle", Wishes.fromSpoken("kindle").title)
+        assertEquals(15000.0, Wishes.fromSpoken("new shoes under 15000").price)
+    }
+
     @Test fun productNumbersStayInTheName() {
         assertEquals(Triple("Dolo 650", null, null), ShoppingParser.parseOne("dolo 650"))
         assertEquals(Triple("Eggs", 12.0, null), ShoppingParser.parseOne("eggs 12"))

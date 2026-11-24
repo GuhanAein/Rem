@@ -35,6 +35,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material.icons.rounded.IosShare
+import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.rounded.NotificationsNone
 import androidx.compose.material.icons.rounded.Refresh
@@ -86,7 +87,7 @@ import java.time.LocalDate
 import java.time.LocalTime
 import java.time.temporal.TemporalAdjusters
 
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class, androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 fun ShoppingScreen() {
     val context = LocalContext.current
@@ -107,6 +108,7 @@ fun ShoppingScreen() {
     var editing by remember { mutableStateOf<ShoppingItem?>(null) }
     var sheet by remember { mutableStateOf<String?>(null) }
     var newList by remember { mutableStateOf(false) }
+    var voice by remember { mutableStateOf(false) }
     val haptics = rememberHaptics()
     val toBuy = items.filter { !it.checked }
     val inCart = items.filter { it.checked && it.lastBought == LocalDate.now() }
@@ -176,11 +178,7 @@ fun ShoppingScreen() {
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
-                Box(
-                    Modifier.size(42.dp).clip(CircleShape).background(if (input.isNotBlank()) c.ivory else c.elevated)
-                        .clickable(enabled = input.isNotBlank()) { list?.let { l -> haptics.tick(); scope.launch { spaces.addItems(l.id, input); input = "" } } },
-                    contentAlignment = Alignment.Center,
-                ) { Icon(Icons.Rounded.ArrowUpward, "Add", tint = if (input.isNotBlank()) c.onIvory else c.tertiaryLabel, modifier = Modifier.size(20.dp)) }
+                SendOrMic(input.isNotBlank(), onSend = { list?.let { l -> haptics.tick(); scope.launch { spaces.addItems(l.id, input); input = "" } } }, onMic = { voice = true })
             }
         }
         // Buy again
@@ -228,6 +226,21 @@ fun ShoppingScreen() {
                 }
             }
         }
+    }
+
+    if (voice) list?.let { l ->
+        app.rem.ui.voice.VoiceInputSheet(
+            caption = "Add to ${l.name}", example = "milk, eggs and two bread", actionLabel = "Add to list",
+            onConfirm = { text -> scope.launch { spaces.addItems(l.id, text, spoken = true) }; voice = false },
+            onDismiss = { voice = false },
+            preview = { text ->
+                androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    app.rem.core.spaces.ShoppingParser.splitSpoken(text).forEach { (name, qty, unit) ->
+                        app.rem.ui.components.Token(listOfNotNull(name, qty?.let { q -> (if (q == q.toLong().toDouble()) q.toLong().toString() else q.toString()) + (unit?.let { " $it" } ?: "") }).joinToString(" \u00B7 "), null, tint = c.gold)
+                    }
+                }
+            },
+        )
     }
 
     editing?.let { item -> ItemDialog(item, onDismiss = { editing = null }, onSave = { scope.launch { spaces.updateItem(it) }; editing = null }, onDelete = { scope.launch { spaces.deleteItem(item.id) }; editing = null }) }
@@ -340,6 +353,19 @@ private fun ItemDialog(item: ShoppingItem, onDismiss: () -> Unit, onSave: (Shopp
         },
         dismissButton = { TextButton(onClick = onDelete) { Text("Remove", color = c.danger) } },
     )
+}
+
+/** Mic when the field is empty, send arrow once you type: like a chat app. */
+@Composable
+fun SendOrMic(hasText: Boolean, onSend: () -> Unit, onMic: () -> Unit) {
+    val c = Rem.colors
+    Box(
+        Modifier.size(42.dp).clip(CircleShape).background(if (hasText) c.ivory else c.gold.copy(alpha = 0.16f))
+            .clickable(onClickLabel = if (hasText) "Add" else "Speak", onClick = if (hasText) onSend else onMic),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(if (hasText) Icons.Rounded.ArrowUpward else Icons.Rounded.Mic, if (hasText) "Add" else "Speak", tint = if (hasText) c.onIvory else c.gold, modifier = Modifier.size(20.dp))
+    }
 }
 
 @Composable
