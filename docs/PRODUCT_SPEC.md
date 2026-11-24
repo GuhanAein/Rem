@@ -67,6 +67,58 @@
 - [ ] Daily briefing notification each morning
 - [ ] Break big tasks into subtasks
 
+### Extra features (v2 ideas)
+**Smarter reminders**
+- [ ] "Don't disturb me" awareness: hold reminders while driving, in a meeting or during sleep hours, then deliver them right after
+- [ ] Travel and timezone mode: choose per reminder whether it keeps local time or a fixed time
+- [ ] Leave-by reminders: "Leave now, there's 25 min of traffic to reach the 6pm appointment"
+- [ ] Weather-aware: "Take an umbrella" if it's raining at the reminder time
+- [ ] Battery/charging triggers: "When the phone is charging tonight, remind me to back up"
+- [ ] App-open trigger: "When I open WhatsApp, remind me to reply to Ravi"
+- [ ] Proof of completion: require a photo, a QR/NFC scan or a maths puzzle to dismiss (as in alarm apps)
+- [ ] Countdowns: days left until exams, trips or events, also shown on a widget
+- [ ] Recurring checklists that reset each time (morning routine, packing list)
+
+**Input**
+- [ ] Screenshot/photo OCR: snap a bill, poster or ticket and create a dated reminder from it
+- [ ] Turn SMS and email into reminders (OTP-style detection of bills, flight times, appointments)
+- [ ] Multilingual natural-language input (Hindi, Tamil, Spanish and so on)
+- [ ] Templates: "Doctor visit", "Rent", "Car service" with preset repeats
+
+**Organisation & review**
+- [ ] Eisenhower matrix (urgent/important) view
+- [ ] Kanban board view
+- [ ] Weekly review screen: what you finished, what slipped, what to plan
+- [ ] Time blocking: drag tasks into calendar slots
+- [ ] Estimated duration plus a "Do I have time today?" load meter
+- [ ] Archive and completion history with an undo timeline
+
+**Family & social**
+- [ ] Family space: shared calendar, chores rotation, kids' tasks with rewards
+- [ ] Caregiver mode: alert a family member if a medicine reminder isn't acknowledged
+- [ ] Location sharing for reminders ("Remind Dad when he reaches the shop")
+- [ ] Comments and mentions on shared tasks
+- [ ] Accountability buddy: a friend sees if you skip a habit
+
+**Health & life**
+- [ ] Water intake, posture and eye-break (20-20-20) reminders
+- [ ] Refill alerts when medicine stock runs low
+- [ ] Document expiry tracker: passport, licence, insurance, warranty
+- [ ] Plant watering, pet care and vehicle service schedules
+- [ ] Important-dates gift suggestions for birthdays
+
+**Gamification**
+- [ ] Streaks, XP, levels and achievement badges
+- [ ] Mood check-in after completing tasks
+
+**Platform**
+- [ ] Desktop/web companion and a browser extension
+- [ ] Lock-screen and Always-On-Display reminders
+- [ ] Smart-home hooks: Google Home/Alexa announcements, flash smart lights
+- [ ] Tasker/automation intents and an open API
+- [ ] Import from TickTick, Todoist, Google Tasks and Microsoft To Do (CSV/JSON/ICS)
+- [ ] Senior mode: extra-large text, simple UI, loud repeating alarms
+
 ### Platform & trust
 - [ ] Offline-first local DB
 - [ ] Optional E2E-encrypted cloud sync and multi-device support
