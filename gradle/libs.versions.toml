@@ -15,6 +15,9 @@ robolectric = "4.14.1"
 roborazzi = "1.32.2"
 androidxTest = "1.6.1"
 glance = "1.1.1"
+work = "2.10.0"
+playLocation = "21.3.0"
+biometric = "1.1.0"
 
 [libraries]
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutines" }
@@ -35,6 +38,7 @@ compose-material3 = { module = "androidx.compose.material3:material3" }
 compose-material-icons = { module = "androidx.compose.material:material-icons-extended" }
 room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
 room-ktx = { module = "androidx.room:room-ktx", version.ref = "room" }
+room-testing = { module = "androidx.room:room-testing", version.ref = "room" }
 room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }
 junit5 = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit5" }
 junit5-launcher = { module = "org.junit.platform:junit-platform-launcher" }
@@ -45,6 +49,11 @@ roborazzi = { module = "io.github.takahirom.roborazzi:roborazzi", version.ref = 
 roborazzi-compose = { module = "io.github.takahirom.roborazzi:roborazzi-compose", version.ref = "roborazzi" }
 
 glance-appwidget = { module = "androidx.glance:glance-appwidget", version.ref = "glance" }
+
+work-runtime = { module = "androidx.work:work-runtime-ktx", version.ref = "work" }
+work-testing = { module = "androidx.work:work-testing", version.ref = "work" }
+play-location = { module = "com.google.android.gms:play-services-location", version.ref = "playLocation" }
+biometric = { module = "androidx.biometric:biometric", version.ref = "biometric" }
 
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }

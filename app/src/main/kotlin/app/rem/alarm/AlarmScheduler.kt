@@ -30,7 +30,7 @@ class AlarmScheduler(private val context: Context, private val planner: Reminder
         val at = alarm.fireAt.toEpochMilli()
         when {
             !canScheduleExact() -> alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, operation)
-            style == AlertStyle.ALARM -> {
+            style == AlertStyle.ALARM && alarm.isDue -> {
                 val show = PendingIntent.getActivity(
                     context, alarm.reminderId.toInt(),
                     Intent(context, MainActivity::class.java),
@@ -51,6 +51,8 @@ class AlarmScheduler(private val context: Context, private val planner: Reminder
             .setAction(ACTION_FIRE)
             .putExtra(EXTRA_ID, alarm.reminderId)
             .putExtra(EXTRA_NAG_COUNT, alarm.nagCount)
+            .putExtra(EXTRA_SCHEDULED_AT, alarm.fireAt.toEpochMilli())
+            .putExtra(EXTRA_IS_DUE, alarm.isDue)
         return PendingIntent.getBroadcast(
             context, alarm.reminderId.toInt(), intent,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
@@ -61,5 +63,7 @@ class AlarmScheduler(private val context: Context, private val planner: Reminder
         const val ACTION_FIRE = "app.rem.action.FIRE"
         const val EXTRA_ID = "reminderId"
         const val EXTRA_NAG_COUNT = "nagCount"
+        const val EXTRA_SCHEDULED_AT = "scheduledAt"
+        const val EXTRA_IS_DUE = "isDue"
     }
 }

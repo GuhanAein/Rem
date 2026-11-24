@@ -52,24 +52,27 @@ class Notifier(private val context: Context) {
     fun canUseFullScreen(): Boolean =
         Build.VERSION.SDK_INT < 34 || context.getSystemService(NotificationManager::class.java).canUseFullScreenIntent()
 
-    fun show(reminder: Reminder, isNag: Boolean) {
+    fun show(reminder: Reminder, isNag: Boolean, ring: Boolean = true, titleOverride: String? = null, textOverride: String? = null) {
         if (!canPost()) return
         val id = reminder.id.toInt()
-        val isAlarm = reminder.alertStyle == AlertStyle.ALARM
+        // Early heads-ups ("3 days before") are always gentle; only the on-time alert rings.
+        val isAlarm = reminder.alertStyle == AlertStyle.ALARM && ring
         val content = PendingIntent.getActivity(
             context, id,
             Intent(context, MainActivity::class.java).putExtra(MainActivity.EXTRA_OPEN_ID, reminder.id),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
-        val subtitle = buildString {
+        val subtitle = textOverride ?: buildString {
             if (isNag) append("Still waiting · ")
+            if (!ring) append("Coming up · ")
             append(describeDue(reminder.dueAt))
             reminder.amount?.let { append(" · ").append(it) }
+            reminder.firstStep?.let { append("\nFirst step: ").append(it) }
         }
         val builder = NotificationCompat.Builder(context, if (isAlarm) CHANNEL_ALARMS else CHANNEL_REMINDERS)
             .setSmallIcon(R.drawable.ic_notification)
             .setColor(0xFFD9BC83.toInt())
-            .setContentTitle(reminder.title)
+            .setContentTitle(titleOverride ?: if (reminder.isPrivate) "Private reminder" else reminder.title)
             .setContentText(subtitle)
             .setStyle(NotificationCompat.BigTextStyle().bigText(listOf(subtitle, reminder.notes).filter { it.isNotBlank() }.joinToString("\n")))
             .setPriority(NotificationCompat.PRIORITY_HIGH)

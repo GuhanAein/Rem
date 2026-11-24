@@ -24,4 +24,6 @@ class ReminderRepository(private val dao: ReminderDao) {
     }
 
     suspend fun delete(id: Long) = dao.delete(id)
+
+    suspend fun allActive(): List<Reminder> = dao.allActive().map { it.toModel() }
 }

@@ -16,6 +16,7 @@ class BootReceiver : BroadcastReceiver() {
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
             try {
                 context.container.service.rescheduleAll()
+                app.rem.jobs.DailyJobs.schedule(context)
             } finally {
                 pending.finish()
             }

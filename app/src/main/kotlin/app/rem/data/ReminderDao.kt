@@ -13,8 +13,14 @@ interface ReminderDao {
     @Query("SELECT * FROM reminders WHERE completedAt IS NOT NULL AND completedAt >= :sinceMillis ORDER BY completedAt DESC")
     fun observeCompletedSince(sinceMillis: Long): Flow<List<ReminderEntity>>
 
-    @Query("SELECT * FROM reminders WHERE status = 'ACTIVE' AND (dueAt IS NOT NULL OR snoozedUntil IS NOT NULL)")
+    @Query("SELECT * FROM reminders WHERE status = 'ACTIVE' AND (dueAt IS NOT NULL OR snoozedUntil IS NOT NULL OR `trigger` IS NOT NULL)")
     suspend fun activeScheduled(): List<ReminderEntity>
+
+    @Query("SELECT * FROM reminders")
+    suspend fun all(): List<ReminderEntity>
+
+    @Query("SELECT * FROM reminders WHERE status = 'ACTIVE'")
+    suspend fun allActive(): List<ReminderEntity>
 
     @Query("SELECT * FROM reminders WHERE id = :id")
     suspend fun get(id: Long): ReminderEntity?

@@ -53,6 +53,9 @@ android {
         }
     }
 
+    // Room schemas, so migration tests can open every historic version.
+    sourceSets["debug"].assets.srcDir("$projectDir/schemas")
+
     packaging { resources { excludes += "/META-INF/{AL2.0,LGPL2.1}" } }
 }
 
@@ -75,6 +78,9 @@ dependencies {
     implementation(libs.compose.material3)
     implementation(libs.compose.material.icons)
     implementation(libs.glance.appwidget)
+    implementation(libs.work.runtime)
+    implementation(libs.play.location)
+    implementation(libs.biometric)
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)
     ksp(libs.room.compiler)
@@ -89,4 +95,6 @@ dependencies {
     testImplementation(libs.compose.ui.test.junit4)
     testImplementation(libs.roborazzi)
     testImplementation(libs.roborazzi.compose)
+    testImplementation(libs.work.testing)
+    testImplementation(libs.room.testing)
 }

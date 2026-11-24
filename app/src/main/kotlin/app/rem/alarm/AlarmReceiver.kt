@@ -18,24 +18,35 @@ class AlarmReceiver : BroadcastReceiver() {
         if (intent.action != AlarmScheduler.ACTION_FIRE) return
         val id = intent.getLongExtra(AlarmScheduler.EXTRA_ID, -1)
         val nagCount = intent.getIntExtra(AlarmScheduler.EXTRA_NAG_COUNT, 0)
+        val scheduledAt = intent.getLongExtra(AlarmScheduler.EXTRA_SCHEDULED_AT, 0L)
+        val isDue = intent.getBooleanExtra(AlarmScheduler.EXTRA_IS_DUE, true)
         if (id < 0) return
         val pending = goAsync()
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
             try {
-                handle(context, id, nagCount)
+                handle(context, id, nagCount, scheduledAt, isDue)
             } finally {
                 pending.finish()
             }
         }
     }
 
-    internal suspend fun handle(context: Context, id: Long, nagCount: Int) {
+    internal suspend fun handle(context: Context, id: Long, nagCount: Int, scheduledAt: Long = 0L, isDue: Boolean = true) {
         val c = context.container
         val reminder = c.repository.get(id) ?: return
         if (reminder.status != Status.ACTIVE) return
         val zone = ZoneId.systemDefault()
         val now = c.clock.instant()
-        c.notifier.show(reminder, isNag = nagCount > 0)
+        if (scheduledAt > 0 && nagCount == 0) c.service.recordFired(id, java.time.Instant.ofEpochMilli(scheduledAt))
+
+        // Hold the alarm during panic snooze, a phone call or (optionally) a calendar meeting.
+        DeliveryGuard.holdUntil(context, c.settings.value, now)?.let { until ->
+            c.scheduler.cancel(id)
+            c.scheduler.set(app.rem.core.scheduling.PlannedAlarm(id, until, isNag = nagCount > 0, nagCount = nagCount, isDue = isDue), reminder.alertStyle)
+            return
+        }
+
+        c.notifier.show(reminder, isNag = nagCount > 0, ring = isDue)
 
         // Nag only once the reminder is actually due (not for "1 day before" heads-ups).
         val dueInstant = reminder.dueAt?.let { ReminderPlanner.toInstant(it, zone) }

@@ -1,6 +1,12 @@
 package app.rem.data
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
+import app.rem.core.model.Kind
+import app.rem.core.model.RandomTimes
+import app.rem.core.model.TimeWindow
+import app.rem.core.model.Trigger
+import org.json.JSONObject
 import androidx.room.Index
 import androidx.room.PrimaryKey
 import app.rem.core.model.AlertStyle
@@ -32,7 +38,24 @@ data class ReminderEntity(
     val occurrenceCount: Int,
     val createdAt: Long,
     val completedAt: Long?,
+    // --- v2 ---
+    @ColumnInfo(defaultValue = "STANDARD") val kind: String = "STANDARD",
+    val window: String? = null,
+    val randomTimes: String? = null,
+    val trigger: String? = null,
+    val followUp: String? = null,
+    val firstStep: String? = null,
+    @ColumnInfo(defaultValue = "0") val isPrivate: Boolean = false,
+    val personId: Long? = null,
+    @ColumnInfo(defaultValue = "{}") val extras: String = "{}",
 )
+
+internal fun encodeExtras(map: Map<String, String>): String = JSONObject(map as Map<*, *>).toString()
+
+internal fun decodeExtras(json: String): Map<String, String> = runCatching {
+    val o = JSONObject(json)
+    o.keys().asSequence().associateWith { o.getString(it) }
+}.getOrDefault(emptyMap())
 
 private val DUE_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss")
 
@@ -55,6 +78,15 @@ fun ReminderEntity.toModel() = Reminder(
     occurrenceCount = occurrenceCount,
     createdAt = Instant.ofEpochMilli(createdAt),
     completedAt = completedAt?.let(Instant::ofEpochMilli),
+    kind = runCatching { Kind.valueOf(kind) }.getOrDefault(Kind.STANDARD),
+    window = TimeWindow.decode(window),
+    randomTimes = RandomTimes.decode(randomTimes),
+    trigger = trigger?.let { runCatching { Trigger.valueOf(it) }.getOrNull() },
+    followUp = followUp,
+    firstStep = firstStep,
+    isPrivate = isPrivate,
+    personId = personId,
+    extras = decodeExtras(extras),
 )
 
 fun Reminder.toEntity() = ReminderEntity(
@@ -74,4 +106,13 @@ fun Reminder.toEntity() = ReminderEntity(
     occurrenceCount = occurrenceCount,
     createdAt = createdAt.toEpochMilli(),
     completedAt = completedAt?.toEpochMilli(),
+    kind = kind.name,
+    window = window?.encode(),
+    randomTimes = randomTimes?.encode(),
+    trigger = trigger?.name,
+    followUp = followUp?.takeIf { it.isNotBlank() },
+    firstStep = firstStep?.takeIf { it.isNotBlank() },
+    isPrivate = isPrivate,
+    personId = personId,
+    extras = encodeExtras(extras),
 )

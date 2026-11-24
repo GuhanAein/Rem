@@ -82,6 +82,7 @@ class MainActivity : ComponentActivity() {
         const val EXTRA_OPEN_ID = "openReminderId"
         const val ACTION_QUICK_ADD = "app.rem.action.QUICK_ADD"
         const val ACTION_VOICE = "app.rem.action.VOICE"
+        const val ACTION_MORNING = "app.rem.action.MORNING"
     }
 }
 

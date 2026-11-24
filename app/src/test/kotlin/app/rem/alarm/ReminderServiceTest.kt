@@ -41,7 +41,10 @@ class ReminderServiceTest {
         shadowOf(app).grantPermissions(android.Manifest.permission.POST_NOTIFICATIONS)
     }
 
-    private fun scheduled() = shadowOf(alarmManager).scheduledAlarms
+    /** Only reminder alarms (the daily morning/backup jobs are scheduled too). */
+    private fun scheduled() = shadowOf(alarmManager).scheduledAlarms.filter { a ->
+        a.operation?.let { shadowOf(it).savedIntent.action } == AlarmScheduler.ACTION_FIRE
+    }
     private fun millis(t: LocalDateTime) = ReminderPlanner.toInstant(t, zone).toEpochMilli()
 
     @Test fun saveSchedulesExactAlarmAtEarliestAlert() = runBlocking {
