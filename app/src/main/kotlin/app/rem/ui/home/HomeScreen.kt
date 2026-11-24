@@ -276,7 +276,7 @@ fun HomeContent(
         LazyColumn(
             state = listState,
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(start = 18.dp, end = 18.dp, bottom = 132.dp),
+            contentPadding = PaddingValues(start = 18.dp, end = 18.dp, bottom = 132.dp + app.rem.ui.spaces.LocalBottomInset.current),
         ) {
             item(key = "header") { Header(state, onSetup, Modifier.staggeredEntrance("header", 0, seen)) }
             item(key = "seg") {
@@ -374,7 +374,7 @@ fun HomeContent(
         }
 
         Dock(onAdd, onVoice, Modifier.align(Alignment.BottomCenter))
-        SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 96.dp)) { data ->
+        SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 96.dp + app.rem.ui.spaces.LocalBottomInset.current)) { data ->
             Snackbar(
                 data,
                 shape = RoundedCornerShape(18.dp),
@@ -578,7 +578,9 @@ private fun Dock(onAdd: () -> Unit, onVoice: () -> Unit, modifier: Modifier = Mo
     val mic = remember { MutableInteractionSource() }
     Box(modifier.fillMaxWidth().background(Brush.verticalGradient(listOf(Color.Transparent, c.canvas.copy(alpha = 0.92f), c.canvas)))) {
         Row(
-            Modifier.align(Alignment.Center).navigationBarsPadding().padding(top = 22.dp, bottom = 14.dp)
+            Modifier.align(Alignment.Center)
+                .then(if (app.rem.ui.spaces.LocalBottomInset.current > 0.dp) Modifier.padding(bottom = app.rem.ui.spaces.LocalBottomInset.current) else Modifier.navigationBarsPadding())
+                .padding(top = 22.dp, bottom = 14.dp)
                 .shadow(24.dp, RoundedCornerShape(36.dp), ambientColor = Color.Black, spotColor = Color.Black)
                 .noirSurface(RoundedCornerShape(36.dp), elevated = true).padding(6.dp),
             verticalAlignment = Alignment.CenterVertically,

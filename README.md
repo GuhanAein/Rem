@@ -17,6 +17,32 @@
 - **Voice input** that understands spoken times, plus **home-screen widgets** and launcher shortcuts.
 - A premium dark design, edge-to-edge.
 
+## New in v0.3: Shopping, Wishlist and Work spaces
+A bottom tab bar keeps four separate spaces: **Today · Shopping · Wishlist · Work**.
+
+| Today | Shopping | Work | Wishlist |
+|---|---|---|---|
+| ![](docs/screenshots/home_light.png) | ![](docs/screenshots/shopping.png) | ![](docs/screenshots/work.png) | ![](docs/screenshots/wishlist.png) |
+
+- **Shopping:**
+  - Lists per shop.
+  - Type "milk, eggs, 2 bread, 1kg rice" to add four items with quantities.
+  - Items are auto-sorted by aisle.
+  - Buy again, staples that come back every N days, "running low", and an estimated total.
+  - Share the list to WhatsApp.
+  - Reminders **when you arrive at the shop** (the notification lists the items), every Saturday, or when the list gets long.
+- **Wishlist:**
+  - Share a product from Amazon, Flipkart or Myntra and it lands here with its link and price.
+  - A **30-day "still want it?"** check-in.
+  - Target price, savings progress, gifts linked to People with a 2-week lead time, and payday and sale-day nudges.
+- **Work:**
+  - Projects, with To do / Doing / Waiting / Done as a list or board.
+  - "Waiting on Ravi" follow-ups after 2 working days.
+  - **Work hours:** work reminders stay quiet in the evenings and at weekends.
+  - A morning work agenda and an evening wrap-up that moves the rest to tomorrow.
+
+**Alarms fixed:** "Ring as alarm" now really rings, using a looping alarm sound and vibration from a foreground service, whether the screen is on or off. Exact timing uses `USE_EXACT_ALARM`.
+
 ## New in v0.2: remind everything, smarter
 **Smarter reminders**
 - **Only between:** fire only within allowed hours, such as "call the bank" on weekdays 10–4. Reminders outside the window move to the next allowed slot.

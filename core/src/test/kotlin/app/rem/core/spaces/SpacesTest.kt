@@ -25,6 +25,12 @@ class SpacesTest {
         assertNull(items[0].second)
     }
 
+    @Test fun productNumbersStayInTheName() {
+        assertEquals(Triple("Dolo 650", null, null), ShoppingParser.parseOne("dolo 650"))
+        assertEquals(Triple("Eggs", 12.0, null), ShoppingParser.parseOne("eggs 12"))
+        assertEquals(Triple("iPhone 16 case", null, null), ShoppingParser.parseOne("iPhone 16 case"))
+    }
+
     @Test fun unitsAreNormalised() {
         assertEquals(Triple("Oil", 2.0, "L"), ShoppingParser.parseOne("2 litres oil"))
         assertEquals(Triple("Paneer", 200.0, "g"), ShoppingParser.parseOne("200 gms paneer"))

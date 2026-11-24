@@ -76,4 +76,12 @@ class RecurrenceRuleTest {
         assertEquals("Every 2 weeks", RecurrenceRule.parse("FREQ=WEEKLY;INTERVAL=2").describe())
         assertEquals("Monthly on the 1st", RecurrenceRule.parse("FREQ=MONTHLY;BYMONTHDAY=1").describe())
     }
+
+    @Test fun firstOccurrenceSnapsToTheRuleDays() {
+        val rule = RecurrenceRule.parse("FREQ=WEEKLY;BYDAY=SA")
+        // Thursday 10:00 with an every-Saturday rule -> Saturday 10:00
+        assertEquals(dt("2026-11-28T10:00"), rule.firstOnOrAfter(dt("2026-11-26T10:00"), dt("2026-11-26T10:00")))
+        // Already on a matching day: unchanged
+        assertEquals(dt("2026-11-28T10:00"), rule.firstOnOrAfter(dt("2026-11-28T10:00"), dt("2026-11-28T10:00")))
+    }
 }

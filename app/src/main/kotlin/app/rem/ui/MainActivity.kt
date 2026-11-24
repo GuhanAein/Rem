@@ -41,10 +41,15 @@ import app.rem.ui.onboarding.isOnboarded
 import app.rem.ui.onboarding.readSetupStatus
 import app.rem.ui.theme.RemTheme
 import androidx.compose.runtime.collectAsState
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.navigationBars
+import kotlinx.coroutines.launch
 
 class MainActivity : androidx.fragment.app.FragmentActivity() {
     private var launchAction by mutableStateOf<LaunchAction?>(null)
     private var openMorning by mutableStateOf(false)
+    private var openTab by mutableStateOf<app.rem.ui.spaces.Tab?>(null)
     /** App lock: unlocked for this visit once biometric/screen-lock succeeds. */
     private var unlocked by mutableStateOf(false)
     private var openId by mutableStateOf<Long?>(null)
@@ -67,6 +72,8 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
                             onOpenConsumed = { openId = null },
                             openMorning = openMorning,
                             onMorningConsumed = { openMorning = false },
+                            openTab = openTab,
+                            onTabConsumed = { openTab = null },
                         )
                     }
                 }
@@ -96,13 +103,28 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
     private fun handleIntent(intent: Intent?) {
         intent ?: return
         when (intent.action) {
-            Intent.ACTION_SEND -> launchAction = LaunchAction.QuickAdd(intent.getStringExtra(Intent.EXTRA_TEXT)?.take(300).orEmpty())
+            Intent.ACTION_SEND -> {
+                val text = intent.getStringExtra(Intent.EXTRA_TEXT).orEmpty()
+                if (isProductLink(text)) {
+                    // Products shared from shopping apps go to the Wishlist.
+                    kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch { container.spaces.addShared(text.take(600)) }
+                    openTab = app.rem.ui.spaces.Tab.WISHLIST
+                } else {
+                    launchAction = LaunchAction.QuickAdd(text.take(300))
+                }
+            }
+            ACTION_SHOPPING -> openTab = app.rem.ui.spaces.Tab.SHOPPING
+            ACTION_WISHLIST -> openTab = app.rem.ui.spaces.Tab.WISHLIST
+            ACTION_WORK -> openTab = app.rem.ui.spaces.Tab.WORK
             ACTION_QUICK_ADD -> launchAction = LaunchAction.QuickAdd()
             ACTION_VOICE -> launchAction = LaunchAction.Voice
             ACTION_MORNING -> openMorning = true
         }
         intent.getLongExtra(EXTRA_OPEN_ID, -1).takeIf { it > 0 }?.let { openId = it }
     }
+
+    private fun isProductLink(text: String): Boolean =
+        Regex("""https?://\S*(amazon\.|amzn\.|flipkart\.|fkrt\.|myntra\.|ajio\.|meesho\.|nykaa\.|tatacliq\.|croma\.|ikea\.|reliancedigital\.|snapdeal\.)""", RegexOption.IGNORE_CASE).containsMatchIn(text)
 
     companion object {
         const val EXTRA_OPEN_ID = "openReminderId"
@@ -124,7 +146,11 @@ private fun RemNavHost(
     onOpenConsumed: () -> Unit,
     openMorning: Boolean,
     onMorningConsumed: () -> Unit,
+    openTab: app.rem.ui.spaces.Tab? = null,
+    onTabConsumed: () -> Unit = {},
 ) {
+    var tab by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(app.rem.ui.spaces.Tab.TODAY) }
+    LaunchedEffect(openTab) { openTab?.let { tab = it; onTabConsumed() } }
     val context = LocalContext.current
     val nav = rememberNavController()
     val start = if (isOnboarded(context)) "home" else "onboarding"
@@ -161,16 +187,29 @@ private fun RemNavHost(
                 vm.setNeedsSetup(!readSetupStatus(context).essentialsOk)
                 onPauseOrDispose { }
             }
-            CompositionLocalProvider(LocalNavAnimatedScope provides this) {
-            HomeScreen(
-                viewModel = vm,
-                launchAction = launchAction,
-                onLaunchConsumed = onLaunchConsumed,
-                onOpen = { id -> nav.navigate("edit?id=$id") },
-                onMoreOptions = { text -> nav.navigate("edit?text=${Uri.encode(text)}") },
-                onSetup = { nav.navigate("settings") },
-                onSpace = { route -> nav.navigate(route) },
-            )
+            val navScope = this
+            val navInset = androidx.compose.foundation.layout.WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+            androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.fillMaxSize()) {
+                CompositionLocalProvider(
+                    LocalNavAnimatedScope provides navScope,
+                    app.rem.ui.spaces.LocalBottomInset provides app.rem.ui.spaces.TAB_BAR_HEIGHT + navInset,
+                ) {
+                    when (tab) {
+                        app.rem.ui.spaces.Tab.TODAY -> HomeScreen(
+                            viewModel = vm,
+                            launchAction = launchAction,
+                            onLaunchConsumed = onLaunchConsumed,
+                            onOpen = { id -> nav.navigate("edit?id=$id") },
+                            onMoreOptions = { text -> nav.navigate("edit?text=${Uri.encode(text)}") },
+                            onSetup = { nav.navigate("settings") },
+                            onSpace = { route -> nav.navigate(route) },
+                        )
+                        app.rem.ui.spaces.Tab.SHOPPING -> app.rem.ui.spaces.ShoppingScreen()
+                        app.rem.ui.spaces.Tab.WISHLIST -> app.rem.ui.spaces.WishlistScreen()
+                        app.rem.ui.spaces.Tab.WORK -> app.rem.ui.spaces.WorkScreen(onOpen = { id -> nav.navigate("edit?id=$id") })
+                    }
+                }
+                app.rem.ui.spaces.TabBar(tab, { tab = it }, androidx.compose.ui.Modifier.align(androidx.compose.ui.Alignment.BottomCenter))
             }
         }
         composable(

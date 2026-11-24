@@ -35,7 +35,7 @@ class ReminderService(
     private val zone: ZoneId get() = ZoneId.systemDefault()
 
     suspend fun save(reminder: Reminder): Long {
-        val id = repository.upsert(resolveTimeTrigger(reminder))
+        val id = repository.upsert(snapToRule(resolveTimeTrigger(reminder)))
         repository.get(id)?.let { scheduler.schedule(it, zone) }
         onChanged()
         return id
@@ -137,6 +137,16 @@ class ReminderService(
             else -> return r
         }
         return r.copy(dueAt = target)
+    }
+
+    /** "Every Saturday" starting on a Thursday: the first reminder moves to Saturday. */
+    fun snapToRule(r: Reminder): Reminder {
+        val due = r.dueAt ?: return r
+        if (r.randomTimes != null) return r
+        val rule = app.rem.core.recurrence.RecurrenceRule.parseOrNull(r.recurrence) ?: return r
+        if (rule.byDay.isEmpty() && rule.byMonthDay.isEmpty()) return r
+        val first = rule.firstOnOrAfter(due, due) ?: return r
+        return if (first == due) r else r.copy(dueAt = first)
     }
 
     private fun nextAt(t: LocalTime, now: LocalDateTime): LocalDateTime =

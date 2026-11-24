@@ -76,7 +76,10 @@ object ShoppingParser {
             return Triple(m.groupValues[3].trim().cap(), m.groupValues[1].toDouble(), m.groupValues[2].normUnit())
         }
         trailing.matchEntire(t)?.let { m ->
-            return Triple(m.groupValues[1].trim().cap(), m.groupValues[2].toDouble(), m.groupValues[3].normUnit())
+            val n = m.groupValues[2].toDouble()
+            // "Dolo 650", "Maggi 280": a big bare number is part of the product name, not a quantity.
+            if (m.groupValues[3].isEmpty() && n >= 100) return Triple(t.cap(), null, null)
+            return Triple(m.groupValues[1].trim().cap(), n, m.groupValues[3].normUnit())
         }
         return Triple(t.cap(), null, null)
     }
@@ -96,7 +99,8 @@ object ShoppingParser {
         else -> lowercase()
     }
 
-    private fun String.cap() = replaceFirstChar { it.uppercase() }
+    /** Capitalise "milk" -> "Milk", but leave brand casing like "iPhone" or "eBay" alone. */
+    private fun String.cap(): String = if (length > 1 && this[0].isLowerCase() && this[1].isUpperCase()) this else replaceFirstChar { it.uppercase() }
 }
 
 /** Keyword rules that sort an item into the aisle you'd find it in. */

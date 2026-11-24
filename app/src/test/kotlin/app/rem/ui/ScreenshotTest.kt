@@ -64,10 +64,6 @@ class ScreenshotTest {
         Reminder(id = 21, title = "Morning run", dueAt = today.atTime(6, 30), completedAt = java.time.Instant.now()),
     )
 
-    @Test fun home_light() = captureRoboImage("$out/home_light.png") {
-        StaticTheme(false) { HomeContent(buildHomeState(sampleReminders(today), done, now, SmartList.TODAY, null, false)) }
-    }
-
     @Test fun home_collections() = captureRoboImage("$out/home_all.png") {
         StaticTheme(true) { HomeContent(buildHomeState(sampleReminders(today), done, now, SmartList.ALL, null, false), listState = androidx.compose.foundation.lazy.LazyListState(firstVisibleItemIndex = 9)) }
     }

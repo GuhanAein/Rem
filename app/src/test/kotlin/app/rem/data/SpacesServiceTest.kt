@@ -3,6 +3,7 @@ package app.rem.data
 import androidx.test.core.app.ApplicationProvider
 import app.rem.RemApplication
 import app.rem.core.model.Space
+import app.rem.core.model.Reminder
 import app.rem.core.model.Status
 import app.rem.core.spaces.Aisle
 import app.rem.core.spaces.WishStatus
@@ -91,5 +92,11 @@ class SpacesServiceTest {
         assertEquals(LocalDate.now().plusDays(30), w.askOn)
         s.setWishStatus(w, WishStatus.BOUGHT)
         assertEquals(WishStatus.BOUGHT, c.database.wishes().get(id)!!.toModel().status)
+    }
+
+    @Test fun weeklyRuleSnapsFirstReminderToTheRightDay() = runBlocking {
+        val thursday = LocalDate.now().with(java.time.temporal.TemporalAdjusters.next(java.time.DayOfWeek.THURSDAY)).atTime(10, 0)
+        val id = c.service.save(Reminder(title = "Groceries", dueAt = thursday, recurrence = "FREQ=WEEKLY;BYDAY=SA"))
+        assertEquals(java.time.DayOfWeek.SATURDAY, c.repository.get(id)!!.dueAt!!.dayOfWeek)
     }
 }

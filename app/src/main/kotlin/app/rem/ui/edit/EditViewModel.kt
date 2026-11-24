@@ -84,6 +84,7 @@ data class EditUiState(
     val firstStep: String = "",
     val isPrivate: Boolean = false,
     val extras: Map<String, String> = emptyMap(),
+    val space: app.rem.core.model.Space = app.rem.core.model.Space.PERSONAL,
 ) {
     /** "Deadline mode": gentle notes a week and 3 days before, a firm alarm on the day. */
     val escalating: Boolean get() = alertOffsets.containsAll(DEADLINE_OFFSETS) && style == AlertStyle.ALARM
@@ -136,6 +137,7 @@ class EditViewModel(private val container: AppContainer, private val id: Long, p
         firstStep = r.firstStep.orEmpty(),
         isPrivate = r.isPrivate,
         extras = r.extras,
+        space = r.space,
     )
 
     fun update(transform: (EditUiState) -> EditUiState) = _state.update(transform)
@@ -175,6 +177,8 @@ class EditViewModel(private val container: AppContainer, private val id: Long, p
             firstStep = s.firstStep.trim().ifEmpty { null },
             isPrivate = s.isPrivate,
             extras = s.extras,
+            space = s.space,
+            workStatus = if (s.space == app.rem.core.model.Space.WORK) (s.original?.workStatus ?: "TODO") else null,
         ).let { r ->
             // Random-time reminders start at their next random slot.
             val rt = s.randomTimes

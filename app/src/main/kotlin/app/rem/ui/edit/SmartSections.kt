@@ -30,6 +30,7 @@ import androidx.compose.material.icons.rounded.AddAPhoto
 import androidx.compose.material.icons.rounded.Category
 import androidx.compose.material.icons.rounded.EventBusy
 import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.WorkOutline
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Sensors
 import androidx.compose.material.icons.rounded.Shuffle
@@ -316,6 +317,10 @@ fun MoreSection(state: EditUiState, onChange: ((EditUiState) -> EditUiState) -> 
         FieldRow("Then ask about", state.followUp, "e.g. Doctor visit", icon = Icons.Rounded.SubdirectoryArrowRight) { v -> onChange { it.copy(followUp = v) } }
         RowDivider(54.dp)
         FieldRow("Tiny first step", state.firstStep, "e.g. Open the tax portal", icon = Icons.Rounded.PlayArrow) { v -> onChange { it.copy(firstStep = v) } }
+        RowDivider(54.dp)
+        SwitchRow("Work task", state.space == app.rem.core.model.Space.WORK, { on -> onChange { it.copy(space = if (on) app.rem.core.model.Space.WORK else app.rem.core.model.Space.PERSONAL) } },
+            icon = Icons.Rounded.WorkOutline, iconColor = c.secondaryLabel,
+            subtitle = if (state.space == app.rem.core.model.Space.WORK) "Lives in Work and respects work hours" else null)
         RowDivider(54.dp)
         SwitchRow("Private", state.isPrivate, { on -> onChange { it.copy(isPrivate = on) } }, icon = Icons.Rounded.Lock, iconColor = c.secondaryLabel,
             subtitle = if (state.isPrivate) "Hidden behind app lock; notifications say “Private reminder”" else null)
