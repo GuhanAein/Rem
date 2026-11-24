@@ -2,6 +2,13 @@
 
 **One-liner:** The reminder app you *can't* miss: the organisation of TickTick, the natural language of Todoist, and the persistence of an alarm app, all private and offline-first.
 
+## Core principle: no AI APIs
+Rem uses **no AI or LLM APIs**. Every "smart" feature is built from rules that run on the phone:
+- Quick add uses a rule-based natural-language parser (pattern matching plus date words), written in plain Kotlin.
+- Voice uses Android's built-in `SpeechRecognizer`; photo/screenshot text uses on-device ML Kit Text Recognition (free, offline, no key).
+- Suggestions and rescheduling use keyword rules, the user's own history, and a free-slot-filling algorithm.
+- v0.1–v0.4 need **no server at all**. Free non-AI services are added only where the data must come from outside: Open-Meteo for weather, OSRM/OpenRouteService for traffic, and Firebase/Supabase free tiers for sync in v0.5.
+
 ## Target users
 - People who forget things even when they have reminders set (they need persistence).
 - Students and professionals juggling tasks, deadlines and habits.
