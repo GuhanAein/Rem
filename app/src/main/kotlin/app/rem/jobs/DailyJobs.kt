@@ -43,6 +43,7 @@ object DailyJobs {
         set(context, ACTION_NIGHTLY, LocalTime.of(2, 30), 9102)
         set(context, ACTION_WORK_START, s.workHours.start, 9103)
         set(context, ACTION_WORK_END, s.workHours.end.minusMinutes(15), 9104)
+        LifeJobs.schedule(context)
     }
 
     internal suspend fun runWorkStart(context: Context) {

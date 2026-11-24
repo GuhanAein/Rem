@@ -1,6 +1,8 @@
 <resources>
     <string name="app_name">Rem</string>
     <string name="widget_today_description">Today\'s reminders. Tick them off from your home screen.</string>
+    <string name="widget_shopping_description">Your shopping list. Tick items off as you shop.</string>
+    <string name="widget_work_description">Your next work tasks.</string>
     <string name="widget_quick_description">Add a reminder by typing or speaking.</string>
     <string name="shortcut_voice">Say a reminder</string>
     <string name="shortcut_new">New reminder</string>

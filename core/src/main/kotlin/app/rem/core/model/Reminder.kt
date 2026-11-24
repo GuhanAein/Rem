@@ -23,6 +23,7 @@ enum class Kind(val label: String) {
     RETURN("Return"),
     HABIT("Habit"),
     CHORE("Chore"),
+    DOCUMENT("Document"),
     /** Internal: the reminder attached to a shopping list (at the shop, or on a day). */
     SHOPPING_LIST("Shopping list"),
 }

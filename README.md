@@ -17,6 +17,30 @@
 - **Voice input** that understands spoken times, plus **home-screen widgets** and launcher shortcuts.
 - A premium dark design, edge-to-edge.
 
+## New in v0.4: daily helpers, kanban, life admin and a light theme
+- **Bedtime summary:** half an hour before bed, one notification lists what's left from today and what's due tomorrow. **Move to tomorrow** reschedules everything left, keeping each reminder's time.
+- **Still want it?:** after 30 days on your wishlist, the notification asks with **Keep**, **Bought** and **Let go** buttons, so you can answer without opening Rem.
+- **Kanban board for Work:** To do, Doing, Waiting and Done columns. Press and hold a card, drag it to another column, and the board scrolls on its own near the edges. Dropping a card on Waiting asks who you're waiting on.
+- **Life admin:**
+  - **Bills this month:** the expected total (bills due this month plus subscriptions), overdue bills, and a red warning when a subscription renews within three days.
+  - **Documents vault:** passport, licence, insurance, PUC, RC and more, with front and back photos and the document number. Renewal reminders start early for slow renewals (passports from six months out) and late for quick ones (PUC a week out).
+  - The existing warranty vault keeps receipt photos and warns before the warranty ends.
+- **Water reminders:** your daily goal (6–12 glasses) is spread evenly between when you wake and an hour before bed, so it adapts if you change your sleep times. **Drank a glass** works straight from the notification, and reminders stop once you reach the goal.
+- **Convenience:**
+  - **From notifications:** allow notification access and Rem keeps your last 40 notifications on the phone. Tap a WhatsApp message, an email or a bank alert and it becomes a reminder. One-time passwords are never saved.
+  - **Bills from messages:** Rem reads bill texts (bank, phone, power, gas) with pattern rules and offers **Remind me** before the due date. It's off by default and nothing is uploaded. It can also scan the last 45 days of messages. Note: Google Play restricts SMS permissions, so this is meant for sideloaded builds.
+  - **Clipboard quick-add:** a **Paste** button on the Quick Add widget, and a Paste chip in the add sheet when you've copied something.
+  - **More widgets:** **Shopping list** (tick items as you shop) and **Work: next up** (in-progress first, then by due time).
+  - **Lock-screen countdown:** any reminder can show a live countdown on the lock screen until it's due.
+  - **Quick Settings tile:** add **Add reminder** to your notification shade.
+  - **Templates:** Travel packing (a list in Shopping), Before a trip, Monthly bills, New month checklist, Moving house and Exam season.
+- **Light theme, Rem Ivory:** a warm paper canvas, white cards and ink-black buttons, with the accent deepened so it stays readable. Choose Dark, Light or Match phone.
+- **Onboarding:** a new "Make it yours" step picks the theme (with a live preview), wake and bed times, and the morning card, bedtime summary and water reminders, then asks for permissions.
+
+| Kanban | Life admin | Life admin, light | Templates | Make it yours |
+|---|---|---|---|---|
+| ![](docs/screenshots/kanban.png) | ![](docs/screenshots/life_admin.png) | ![](docs/screenshots/life_admin_light.png) | ![](docs/screenshots/templates.png) | ![](docs/screenshots/onboarding_prefs.png) |
+
 ## New in v0.3: Shopping, Wishlist and Work spaces
 A bottom tab bar keeps four separate spaces: **Today · Shopping · Wishlist · Work**.
 
@@ -117,7 +141,9 @@ Voice works in every space as well. When the input field is empty, its send butt
 
 ## Widgets
 - **Today** (resizable): today's count, overdue and upcoming reminders, a tick circle to complete one, and buttons to add or say a new reminder.
-- **Quick Add** (2×1): a "New" button and a mic.
+- **Quick Add** (2×1): a "New" button, Paste (turns what you copied into a reminder) and a mic.
+- **Shopping list**: the open items on your first list; tap one to mark it bought.
+- **Work: next up**: in-progress tasks first, then by due time; tick to finish.
 
 ## Build
 Requirements: JDK 17+ and the Android SDK (platform 35).

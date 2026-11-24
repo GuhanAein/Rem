@@ -38,6 +38,7 @@ import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.Flag
 import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.Repeat
+import androidx.compose.material.icons.rounded.ContentPaste
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -210,6 +211,12 @@ fun QuickAddContent(
 
         Spacer(Modifier.height(18.dp))
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            // Clipboard quick-add: the sheet is in the foreground, so reading the clipboard is allowed.
+            val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
+            val copied = remember { runCatching { clipboard.getText()?.text?.trim() }.getOrNull()?.takeIf { it.isNotEmpty() && it.length <= 500 } }
+            Fade(!hasText && copied != null) {
+                Token("Paste \u201C${copied.orEmpty().take(24)}${if ((copied?.length ?: 0) > 24) "\u2026" else ""}\u201D", Icons.Rounded.ContentPaste, tint = c.gold, onClick = { onTextChange(copied.orEmpty().take(300)) })
+            }
             Fade(hasText) {
                 Row(
                     Modifier.clip(androidx.compose.foundation.shape.RoundedCornerShape(50)).clickable { pickCategory = true },

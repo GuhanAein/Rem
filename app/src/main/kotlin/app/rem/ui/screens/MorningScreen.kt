@@ -81,7 +81,7 @@ fun MorningCard(m: DailyJobs.Morning, date: LocalDate) {
     val c = Rem.colors
     val gold = c.gold
     Column(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp)).background(Color(0xFF111114))
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp)).background(app.rem.ui.theme.RemPalette.current.surface)
             .drawWithContent {
                 drawRect(Brush.radialGradient(listOf(gold.copy(alpha = 0.16f), Color.Transparent), center = Offset(size.width, 0f), radius = size.width))
                 drawContent()

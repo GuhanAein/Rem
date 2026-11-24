@@ -15,7 +15,16 @@ enum class Accent(val label: String, val argb: Long, val deep: Long) {
     EMERALD("Emerald", 0xFF8FCDB0, 0xFF5E9C80),
 }
 
+enum class ThemeMode(val label: String) { SYSTEM("Match phone"), DARK("Dark"), LIGHT("Light") }
+
 data class AppSettings(
+    val theme: ThemeMode = ThemeMode.DARK,
+    /** A note at bedtime listing what's left from today, with "Move to tomorrow". */
+    val bedtimeSummary: Boolean = true,
+    val waterEnabled: Boolean = false,
+    val waterGlasses: Int = 8,
+    /** Offer a reminder when a bill arrives by SMS. */
+    val smsBills: Boolean = false,
     val accent: Accent = Accent.GOLD,
     val bedtime: LocalTime = LocalTime.of(22, 30),
     val wakeTime: LocalTime = LocalTime.of(7, 0),
@@ -55,6 +64,11 @@ class Settings(context: Context) {
     }
 
     private fun read(): AppSettings = AppSettings(
+        theme = prefs.getString("theme", null)?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() } ?: ThemeMode.DARK,
+        bedtimeSummary = prefs.getBoolean("bedtimeSummary", true),
+        waterEnabled = prefs.getBoolean("water", false),
+        waterGlasses = prefs.getInt("waterGlasses", 8),
+        smsBills = prefs.getBoolean("smsBills", false),
         accent = prefs.getString("accent", null)?.let { runCatching { Accent.valueOf(it) }.getOrNull() } ?: Accent.GOLD,
         bedtime = prefs.time("bedtime", LocalTime.of(22, 30)),
         wakeTime = prefs.time("wakeTime", LocalTime.of(7, 0)),
@@ -78,6 +92,11 @@ class Settings(context: Context) {
 
     private fun write(s: AppSettings) {
         prefs.edit().apply {
+            putString("theme", s.theme.name)
+            putBoolean("bedtimeSummary", s.bedtimeSummary)
+            putBoolean("water", s.waterEnabled)
+            putInt("waterGlasses", s.waterGlasses)
+            putBoolean("smsBills", s.smsBills)
             putString("accent", s.accent.name)
             putString("bedtime", s.bedtime.toString())
             putString("wakeTime", s.wakeTime.toString())

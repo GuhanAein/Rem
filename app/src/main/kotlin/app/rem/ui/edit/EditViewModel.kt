@@ -220,6 +220,7 @@ class EditViewModel(private val container: AppContainer, private val id: Long, p
         when (kind) {
             Kind.SUBSCRIPTION -> s.copy(kind = kind, category = Category.BILL, repeat = if (s.repeat.freq == null) RepeatForm(Freq.MONTHLY) else s.repeat, alertOffsets = setOf(3 * 1440, 0))
             Kind.WARRANTY -> s.copy(kind = kind, category = Category.DOCUMENT, alertOffsets = setOf(30 * 1440, 7 * 1440))
+            Kind.DOCUMENT -> s.copy(kind = kind, category = Category.DOCUMENT, alertOffsets = setOf(30 * 1440, 7 * 1440, 1440, 0), date = s.date ?: LocalDate.now(container.clock).plusMonths(6))
             Kind.CAR_SERVICE -> s.copy(kind = kind, category = Category.VEHICLE, alertOffsets = setOf(7 * 1440, 1440))
             Kind.PLANT -> s.copy(kind = kind, category = Category.HOME, repeat = if (s.repeat.freq == null) RepeatForm(Freq.DAILY, interval = 3) else s.repeat)
             Kind.LEND, Kind.BORROW -> s.copy(kind = kind, date = s.date ?: LocalDate.now(container.clock).plusWeeks(2))

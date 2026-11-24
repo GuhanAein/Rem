@@ -48,7 +48,10 @@ import kotlinx.coroutines.launch
 
 class MainActivity : androidx.fragment.app.FragmentActivity() {
     private var launchAction by mutableStateOf<LaunchAction?>(null)
-    private var openMorning by mutableStateOf(false)
+    /** A screen to open on launch: "morning", "life", "templates", "captured", "bills". */
+    private var openRoute by mutableStateOf<String?>(null)
+    /** Set by the Paste widget button; the clipboard can only be read once the window has focus. */
+    private var pasteOnFocus = false
     private var openTab by mutableStateOf<app.rem.ui.spaces.Tab?>(null)
     /** App lock: unlocked for this visit once biometric/screen-lock succeeds. */
     private var unlocked by mutableStateOf(false)
@@ -56,11 +59,21 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
         handleIntent(intent)
+        container.settings.value.theme.let { mode ->
+            val nightUi = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
+            app.rem.ui.theme.RemPalette.prime(mode == app.rem.data.ThemeMode.DARK || (mode == app.rem.data.ThemeMode.SYSTEM && nightUi))
+        }
         setContent {
             val settings by container.settings.state.collectAsState()
-            RemTheme(accent = settings.accent) {
+            val dark = app.rem.ui.theme.isDark(settings.theme)
+            androidx.compose.runtime.DisposableEffect(dark) {
+                val style = if (dark) androidx.activity.SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
+                else androidx.activity.SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT)
+                enableEdgeToEdge(statusBarStyle = style, navigationBarStyle = style)
+                onDispose { }
+            }
+            RemTheme(darkTheme = dark, accent = settings.accent) {
                 androidx.compose.runtime.CompositionLocalProvider(app.rem.ui.motion.LocalAmbientMotion provides app.rem.ui.motion.systemAnimationsEnabled(this@MainActivity)) {
                     if (settings.appLock && !unlocked) {
                         app.rem.ui.lock.LockScreen(onUnlock = { app.rem.ui.lock.authenticate(this@MainActivity) { unlocked = true } })
@@ -70,8 +83,8 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
                             onLaunchConsumed = { launchAction = null },
                             openId = openId,
                             onOpenConsumed = { openId = null },
-                            openMorning = openMorning,
-                            onMorningConsumed = { openMorning = false },
+                            openRoute = openRoute,
+                            onRouteConsumed = { openRoute = null },
                             openTab = openTab,
                             onTabConsumed = { openTab = null },
                         )
@@ -93,6 +106,17 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
         // Pickers (photos, ringtones, files) briefly leave Rem; only a real absence re-locks it.
         if (app.rem.ui.lock.shouldRelock(backgroundedAt, System.currentTimeMillis())) unlocked = false
         backgroundedAt = null
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus && pasteOnFocus) {
+            pasteOnFocus = false
+            val clip = getSystemService(android.content.ClipboardManager::class.java)?.primaryClip
+            val text = clip?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.coerceToText(this)?.toString()?.trim().orEmpty()
+            launchAction = LaunchAction.QuickAdd(text.take(300))
+            if (text.isEmpty()) android.widget.Toast.makeText(this, "Nothing copied yet", android.widget.Toast.LENGTH_SHORT).show()
+        }
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -118,7 +142,12 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
             ACTION_WORK -> openTab = app.rem.ui.spaces.Tab.WORK
             ACTION_QUICK_ADD -> launchAction = LaunchAction.QuickAdd()
             ACTION_VOICE -> launchAction = LaunchAction.Voice
-            ACTION_MORNING -> openMorning = true
+            ACTION_MORNING -> openRoute = "morning"
+            ACTION_LIFE -> openRoute = "life"
+            ACTION_TEMPLATES -> openRoute = "templates"
+            ACTION_CAPTURED -> openRoute = "captured"
+            ACTION_BILLS -> openRoute = "bills"
+            ACTION_PASTE -> pasteOnFocus = true
         }
         intent.getLongExtra(EXTRA_OPEN_ID, -1).takeIf { it > 0 }?.let { openId = it }
     }
@@ -134,6 +163,11 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
         const val ACTION_SHOPPING = "app.rem.action.SHOPPING"
         const val ACTION_WISHLIST = "app.rem.action.WISHLIST"
         const val ACTION_WORK = "app.rem.action.WORK"
+        const val ACTION_LIFE = "app.rem.action.LIFE"
+        const val ACTION_TEMPLATES = "app.rem.action.TEMPLATES"
+        const val ACTION_CAPTURED = "app.rem.action.CAPTURED"
+        const val ACTION_BILLS = "app.rem.action.BILLS"
+        const val ACTION_PASTE = "app.rem.action.PASTE"
     }
 }
 
@@ -144,8 +178,8 @@ private fun RemNavHost(
     onLaunchConsumed: () -> Unit,
     openId: Long?,
     onOpenConsumed: () -> Unit,
-    openMorning: Boolean,
-    onMorningConsumed: () -> Unit,
+    openRoute: String?,
+    onRouteConsumed: () -> Unit,
     openTab: app.rem.ui.spaces.Tab? = null,
     onTabConsumed: () -> Unit = {},
 ) {
@@ -161,10 +195,10 @@ private fun RemNavHost(
             onOpenConsumed()
         }
     }
-    LaunchedEffect(openMorning) {
-        if (openMorning && isOnboarded(context)) {
-            nav.navigate("morning")
-            onMorningConsumed()
+    LaunchedEffect(openRoute) {
+        if (openRoute != null && isOnboarded(context)) {
+            nav.navigate(openRoute)
+            onRouteConsumed()
         }
     }
 
@@ -229,12 +263,13 @@ private fun RemNavHost(
             }
         }
         composable("setup") { SetupScreen(onBack = { nav.popBackStack() }) }
-        composable("settings") { app.rem.ui.screens.SettingsScreen(onBack = { nav.popBackStack() }, onReliability = { nav.navigate("setup") }) }
+        composable("settings") { app.rem.ui.screens.SettingsScreen(onBack = { nav.popBackStack() }, onReliability = { nav.navigate("setup") }, onRoute = { r -> nav.navigate(r) }) }
         composable("life") {
             app.rem.ui.screens.LifeScreen(
                 onBack = { nav.popBackStack() },
                 onOpen = { id -> nav.navigate("edit?id=$id") },
                 onNew = { k -> nav.navigate("edit?kind=${k.name}") },
+                onRoute = { r -> nav.navigate(r) },
             )
         }
         composable("people") { app.rem.ui.screens.PeopleScreen(onBack = { nav.popBackStack() }) }
@@ -243,6 +278,11 @@ private fun RemNavHost(
         }
         composable("year") { app.rem.ui.screens.YearScreen(onBack = { nav.popBackStack() }) }
         composable("morning") { app.rem.ui.screens.MorningScreen(onBack = { nav.popBackStack() }) }
+        composable("templates") { app.rem.ui.screens.TemplatesScreen(onBack = { nav.popBackStack() }) }
+        composable("captured") {
+            app.rem.ui.screens.CapturedScreen(onBack = { nav.popBackStack() }, onUse = { text -> nav.navigate("edit?text=${Uri.encode(text)}") })
+        }
+        composable("bills") { app.rem.ui.screens.BillsScanScreen(onBack = { nav.popBackStack() }, onOpen = { id -> nav.navigate("edit?id=$id") }) }
     }
     }
     }

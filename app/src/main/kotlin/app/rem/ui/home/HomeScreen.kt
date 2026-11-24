@@ -47,6 +47,8 @@ import androidx.compose.material.icons.rounded.Snooze
 import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.WbSunny
+import androidx.compose.material.icons.rounded.NotificationsActive
+import androidx.compose.material.icons.rounded.AutoAwesomeMotion
 import androidx.compose.material.icons.rounded.Spa
 import androidx.compose.material.icons.rounded.Group
 import androidx.compose.material.icons.rounded.Insights
@@ -267,7 +269,7 @@ fun HomeContent(
         Canvas(Modifier.fillMaxWidth().height(420.dp)) {
             drawRect(
                 Brush.radialGradient(
-                    listOf(Color(0xFFD9BC83).copy(alpha = 0.07f), Color.Transparent),
+                    listOf(app.rem.ui.theme.RemPalette.current.gold.copy(alpha = 0.07f), Color.Transparent),
                     center = Offset(size.width * 0.85f, 0f), radius = size.width * 1.1f,
                 ),
             )
@@ -347,7 +349,7 @@ fun HomeContent(
                             .clip(shape)
                             .background(c.surface),
                     ) {
-                        if (first) Box(Modifier.fillMaxWidth().height(1.dp).background(Brush.horizontalGradient(listOf(Color.Transparent, Color.White.copy(alpha = 0.09f), Color.Transparent))))
+                        if (first) Box(Modifier.fillMaxWidth().height(1.dp).background(Brush.horizontalGradient(listOf(Color.Transparent, app.rem.ui.theme.RemPalette.current.highlight.copy(alpha = 0.09f), Color.Transparent))))
                         SwipeRow(model, onOpen = { onOpen(model.id) }, onComplete = { onComplete(model.id) }, onSnooze = { onSnooze(model.id) })
                         if (!last) RowDivider(56.dp)
                     }
@@ -441,6 +443,8 @@ private fun Spaces(onSpace: (String) -> Unit, modifier: Modifier = Modifier) {
         Triple("people", "People", Icons.Rounded.Group),
         Triple("insights", "Insights", Icons.Rounded.Insights),
         Triple("morning", "Today\u2019s card", Icons.Rounded.WbSunny),
+        Triple("captured", "From notifications", Icons.Rounded.NotificationsActive),
+        Triple("templates", "Templates", Icons.Rounded.AutoAwesomeMotion),
     )
     androidx.compose.foundation.lazy.LazyRow(modifier, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         items(spaces.size) { i ->
@@ -581,13 +585,13 @@ private fun Dock(onAdd: () -> Unit, onVoice: () -> Unit, modifier: Modifier = Mo
             Modifier.align(Alignment.Center)
                 .then(if (app.rem.ui.spaces.LocalBottomInset.current > 0.dp) Modifier.padding(bottom = app.rem.ui.spaces.LocalBottomInset.current) else Modifier.navigationBarsPadding())
                 .padding(top = 22.dp, bottom = 14.dp)
-                .shadow(24.dp, RoundedCornerShape(36.dp), ambientColor = Color.Black, spotColor = Color.Black)
+                .shadow(24.dp, RoundedCornerShape(36.dp), ambientColor = Color.Black.copy(alpha = if (app.rem.ui.theme.RemPalette.isLight) 0.25f else 1f), spotColor = Color.Black.copy(alpha = if (app.rem.ui.theme.RemPalette.isLight) 0.25f else 1f))
                 .noirSurface(RoundedCornerShape(36.dp), elevated = true).padding(6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Row(
                 Modifier.pressScale(add, 0.96f).height(54.dp).clip(RoundedCornerShape(27.dp)).background(c.ivory)
-                    .clickable(add, ripple(color = Color.Black), role = Role.Button) { haptics.tick(); onAdd() }
+                    .clickable(add, ripple(color = app.rem.ui.theme.RemPalette.current.onIvory), role = Role.Button) { haptics.tick(); onAdd() }
                     .padding(horizontal = 22.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -598,7 +602,7 @@ private fun Dock(onAdd: () -> Unit, onVoice: () -> Unit, modifier: Modifier = Mo
             Spacer(Modifier.width(6.dp))
             Box(
                 Modifier.pressScale(mic, 0.9f).size(54.dp).clip(CircleShape).background(c.goldSheen)
-                    .clickable(mic, ripple(color = Color.Black), role = Role.Button, onClickLabel = "Add by voice") { haptics.tick(); onVoice() },
+                    .clickable(mic, ripple(color = app.rem.ui.theme.RemPalette.current.onIvory), role = Role.Button, onClickLabel = "Add by voice") { haptics.tick(); onVoice() },
                 contentAlignment = Alignment.Center,
             ) { Icon(Icons.Rounded.Mic, "Add by voice", tint = c.onIvory, modifier = Modifier.size(22.dp)) }
         }

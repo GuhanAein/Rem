@@ -42,6 +42,9 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import app.rem.container
 import app.rem.core.insights.CarLog
+import app.rem.core.life.Bills
+import app.rem.core.life.Documents
+import androidx.compose.material.icons.rounded.Badge
 import app.rem.core.insights.Money
 import app.rem.core.insights.Rotation
 import app.rem.core.insights.Subscriptions
@@ -85,17 +88,63 @@ val PRESETS = listOf(
 )
 
 @Composable
-fun LifeScreen(onBack: () -> Unit, onOpen: (Long) -> Unit, onNew: (Kind) -> Unit) {
+fun LifeScreen(onBack: () -> Unit, onOpen: (Long) -> Unit, onNew: (Kind) -> Unit, onRoute: (String) -> Unit = {}) {
     val context = LocalContext.current
     val c = Rem.colors
     val scope = rememberCoroutineScope()
-    val active by remember { context.container.repository.observeActive() }.collectAsState(emptyList())
+    // Read once in the body, so every list section below rebuilds together when data changes.
+    val active = remember { context.container.repository.observeActive() }.collectAsState(emptyList()).value
     val today = LocalDate.now()
     var odometerFor by remember { mutableStateOf<Reminder?>(null) }
 
     fun of(k: Kind) = active.filter { it.kind == k }
 
     NoirScreen("Life admin", "Everything,\n*handled.*", onBack) {
+        // ---- Water
+        item { WaterCard() }
+
+        // ---- Bills this month
+        val bills = Bills.dueInMonth(active, today).filter { it.dueAt!!.toLocalDate() >= today.minusDays(7) }
+        val renewing = Bills.renewingSoon(active, today)
+        item {
+            Caption("Bills this month", count = bills.size)
+            Column(Modifier.fillMaxWidth().noirSurface().padding(18.dp)) {
+                Text("EXPECTED THIS MONTH", style = MaterialTheme.typography.labelSmall, color = c.secondaryLabel)
+                Text(Money.format(Bills.monthTotal(active, today)), style = MaterialTheme.typography.displaySmall, color = c.label)
+                Text("Bills due this month plus subscriptions", style = MaterialTheme.typography.bodySmall, color = c.secondaryLabel)
+                renewing.forEach { r ->
+                    Spacer(Modifier.height(12.dp))
+                    Row(
+                        Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(c.danger.copy(alpha = 0.10f)).clickable { onOpen(r.id) }.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text("${r.title} renews ${formatDay(r.dueAt!!.toLocalDate(), today).lowercase()}", style = MaterialTheme.typography.titleSmall, color = c.label)
+                            Text("Cancel now if you don't use it.", style = MaterialTheme.typography.bodySmall, color = c.secondaryLabel)
+                        }
+                        Text(r.amount.orEmpty(), style = MaterialTheme.typography.labelMedium, color = c.danger)
+                    }
+                }
+                bills.forEach { b ->
+                    Spacer(Modifier.height(12.dp))
+                    Row(Modifier.fillMaxWidth().clickable { onOpen(b.id) }, verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(b.title, style = MaterialTheme.typography.titleMedium, color = c.label)
+                            val d = b.dueAt!!.toLocalDate()
+                            Text(if (d.isBefore(today)) "Overdue since ${formatDay(d, today)}" else "Due ${formatDay(d, today)}", style = MaterialTheme.typography.bodySmall, color = if (d.isBefore(today)) c.danger else c.secondaryLabel)
+                        }
+                        Text(b.amount.orEmpty(), style = MaterialTheme.typography.labelMedium, color = c.gold)
+                    }
+                }
+                Spacer(Modifier.height(12.dp))
+                Row {
+                    AddLink("Add bill") { onRoute("edit?text=" + android.net.Uri.encode("Pay bill")) }
+                    Spacer(Modifier.width(20.dp))
+                    AddLink("Find bills in messages") { onRoute("bills") }
+                }
+            }
+        }
+
         // ---- Subscriptions
         val subs = of(Kind.SUBSCRIPTION)
         item {
@@ -128,6 +177,25 @@ fun LifeScreen(onBack: () -> Unit, onOpen: (Long) -> Unit, onNew: (Kind) -> Unit
             LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp), contentPadding = PaddingValues(end = 8.dp)) {
                 items(warranties, key = { it.id }) { w -> PhotoTile(w.extras[PHOTO], w.extras["product"] ?: w.title, w.dueAt?.let { "Expires ${formatDay(it.toLocalDate(), today)}" } ?: "", Icons.Rounded.ReceiptLong) { onOpen(w.id) } }
                 item { NewTile("Add receipt") { onNew(Kind.WARRANTY) } }
+            }
+        }
+
+        // ---- Documents
+        val docs = of(Kind.DOCUMENT).sortedBy { it.dueAt }
+        item {
+            Caption("Documents", count = docs.size)
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp), contentPadding = PaddingValues(end = 8.dp)) {
+                items(docs, key = { it.id }) { d ->
+                    val exp = d.dueAt?.toLocalDate()
+                    val st = Documents.state(exp, today)
+                    val label = when {
+                        exp == null -> "No expiry"
+                        st == Documents.State.EXPIRED -> "Expired ${formatDay(exp, today)}"
+                        else -> "Expires ${formatDay(exp, today)}"
+                    }
+                    PhotoTile(d.extras[PHOTO], d.extras["docType"] ?: d.title, label, Icons.Rounded.Badge, alert = st != Documents.State.VALID) { onOpen(d.id) }
+                }
+                item { NewTile("Add document") { onNew(Kind.DOCUMENT) } }
             }
         }
 
@@ -266,7 +334,7 @@ private fun AddLink(text: String, onClick: () -> Unit) {
 }
 
 @Composable
-private fun PhotoTile(uri: String?, title: String, subtitle: String, fallback: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit) {
+private fun PhotoTile(uri: String?, title: String, subtitle: String, fallback: androidx.compose.ui.graphics.vector.ImageVector, alert: Boolean = false, onClick: () -> Unit) {
     val c = Rem.colors
     Column(Modifier.width(140.dp).noirSurface(RoundedCornerShape(20.dp)).clickable(onClick = onClick).padding(10.dp)) {
         val bmp = rememberUriBitmap(uri)
@@ -276,7 +344,52 @@ private fun PhotoTile(uri: String?, title: String, subtitle: String, fallback: a
         }
         Spacer(Modifier.height(8.dp))
         Text(title, style = MaterialTheme.typography.titleSmall, color = c.label, maxLines = 1)
-        Text(subtitle, style = MaterialTheme.typography.bodySmall, color = c.secondaryLabel, maxLines = 1)
+        Text(subtitle, style = MaterialTheme.typography.bodySmall, color = if (alert) c.danger else c.secondaryLabel, maxLines = 1)
+    }
+}
+
+/** Glasses today against the goal, with a + to log one. Turns the reminders on if they're off. */
+@Composable
+private fun WaterCard() {
+    val context = LocalContext.current
+    val c = Rem.colors
+    val s by context.container.settings.state.collectAsState()
+    val count by context.container.water.count.collectAsState()
+    Caption("Water")
+    Row(Modifier.fillMaxWidth().noirSurface().padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
+        if (!s.waterEnabled) {
+            Column(Modifier.weight(1f)) {
+                Text("Drink enough water", style = MaterialTheme.typography.titleMedium, color = c.label)
+                Text("${s.waterGlasses} gentle reminders spread between ${app.rem.ui.format.formatTime(s.wakeTime)} and ${app.rem.ui.format.formatTime(s.bedtime)}.", style = MaterialTheme.typography.bodySmall, color = c.secondaryLabel)
+            }
+            Spacer(Modifier.width(12.dp))
+            Text("Turn on", style = MaterialTheme.typography.labelLarge, color = c.gold, modifier = Modifier.clip(RoundedCornerShape(50)).clickable {
+                context.container.settings.update { it.copy(waterEnabled = true) }
+                app.rem.jobs.LifeJobs.scheduleWater(context)
+            }.padding(8.dp))
+        } else {
+            app.rem.ui.components.ProgressRing((count.toFloat() / s.waterGlasses).coerceAtMost(1f), size = 44.dp, stroke = 3.dp)
+            Spacer(Modifier.width(16.dp))
+            Column(Modifier.weight(1f)) {
+                Text("$count of ${s.waterGlasses} glasses", style = MaterialTheme.typography.titleMedium, color = c.label)
+                val expected = app.rem.core.life.WaterPlan.expectedBy(java.time.LocalTime.now(), s.wakeTime, s.bedtime, s.waterGlasses)
+                Text(
+                    when {
+                        count >= s.waterGlasses -> "Goal reached. Well done."
+                        count < expected -> "${expected - count} behind. Have one now?"
+                        else -> "On track"
+                    },
+                    style = MaterialTheme.typography.bodySmall, color = if (count < expected && count < s.waterGlasses) c.warning else c.secondaryLabel,
+                )
+            }
+            Box(
+                Modifier.size(44.dp).clip(androidx.compose.foundation.shape.CircleShape).background(c.ivory).clickable {
+                    context.container.water.add()
+                    app.rem.jobs.LifeJobs.scheduleWater(context)
+                },
+                contentAlignment = Alignment.Center,
+            ) { Icon(Icons.Rounded.Add, "Drank a glass", tint = c.onIvory) }
+        }
     }
 }
 

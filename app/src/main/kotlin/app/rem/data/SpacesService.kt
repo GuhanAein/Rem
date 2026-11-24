@@ -62,23 +62,36 @@ class SpacesService(
             db.shopping().upsertItem(ShoppingItemEntity.from(item))
         }
         nudgeIfLong(listId)
+        widgets()
         return parsed.size
+    }
+
+    /** Keep the shopping widget in step; never fails the caller (tests have no widgets). */
+    private suspend fun widgets() = runCatching { app.rem.widget.Widgets.refresh(context) }
+
+    /** Adds items exactly as named (templates), without splitting on "and" or commas. */
+    suspend fun addNames(listId: Long, names: List<String>): Int {
+        names.forEach { n -> db.shopping().upsertItem(ShoppingItemEntity.from(ShoppingItem(listId = listId, name = n, aisle = Aisles.of(n)))) }
+        widgets()
+        return names.size
     }
 
     suspend fun toggle(item: ShoppingItem) {
         val next = if (!item.checked) item.copy(checked = true, lastBought = today, timesBought = item.timesBought + 1, runningLow = false)
         else item.copy(checked = false)
         db.shopping().upsertItem(ShoppingItemEntity.from(next))
+        widgets()
     }
 
     suspend fun buyAgain(item: ShoppingItem) {
         db.shopping().upsertItem(ShoppingItemEntity.from(item.copy(checked = false)))
         nudgeIfLong(item.listId)
+        widgets()
     }
 
     suspend fun updateItem(item: ShoppingItem) = db.shopping().upsertItem(ShoppingItemEntity.from(item))
 
-    suspend fun deleteItem(id: Long) = db.shopping().deleteItem(id)
+    suspend fun deleteItem(id: Long) { db.shopping().deleteItem(id); widgets() }
 
     suspend fun addList(name: String): Long = db.shopping().upsertList(ShoppingListEntity(name = name, sortOrder = db.shopping().lists().size))
 
@@ -154,7 +167,8 @@ class SpacesService(
         val wishes = db.wishes().all().map { it.toModel() }
         val s = settings.value
         wishes.filter { Wishes.coolOffDue(it, today) }.take(3).forEach { w ->
-            post(8100 + w.id.toInt(), "Still want ${w.title}?", "You added it ${java.time.temporal.ChronoUnit.DAYS.between(w.addedOn, today)} days ago. Keep it, buy it, or let it go.", MainActivity.ACTION_WISHLIST)
+            post(8100 + w.id.toInt(), "Still want ${w.title}?", "You added it ${java.time.temporal.ChronoUnit.DAYS.between(w.addedOn, today)} days ago. Keep it, buy it, or let it go.", MainActivity.ACTION_WISHLIST,
+                more = app.rem.jobs.LifeJobs.wishActions(context, w.id))
         }
         if (Wishes.isPayday(today, s.payday)) {
             val wanted = wishes.filter { it.status == WishStatus.WANTED && it.price != null }
@@ -239,7 +253,7 @@ class SpacesService(
 
     // ============================================================== Notifications
 
-    fun post(id: Int, title: String, text: String, action: String, extraAction: Pair<String, PendingIntent>? = null) {
+    fun post(id: Int, title: String, text: String, action: String, extraAction: Pair<String, PendingIntent>? = null, more: List<Pair<String, PendingIntent>> = emptyList()) {
         if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) return
         context.getSystemService(NotificationManager::class.java)
             .createNotificationChannel(NotificationChannel(CHANNEL, "Shopping, wishlist & work", NotificationManager.IMPORTANCE_DEFAULT))
@@ -252,7 +266,7 @@ class SpacesService(
             .setStyle(NotificationCompat.BigTextStyle().bigText(text))
             .setContentIntent(open)
             .setAutoCancel(true)
-        extraAction?.let { (label, pi) -> b.addAction(0, label, pi) }
+        (listOfNotNull(extraAction) + more).forEach { (label, pi) -> b.addAction(0, label, pi) }
         @Suppress("MissingPermission")
         NotificationManagerCompat.from(context).notify(id, b.build())
     }

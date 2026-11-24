@@ -21,6 +21,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material.icons.rounded.WaterDrop
+import androidx.compose.material.icons.rounded.NotificationsActive
+import androidx.compose.material.icons.rounded.Sms
+import androidx.compose.material.icons.rounded.AutoAwesomeMotion
+import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.Backup
 import androidx.compose.material.icons.rounded.BatteryChargingFull
 import androidx.compose.material.icons.rounded.Bedtime
@@ -85,7 +91,7 @@ import java.time.LocalTime
 @SuppressLint("MissingPermission")
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(onBack: () -> Unit, onReliability: () -> Unit) {
+fun SettingsScreen(onBack: () -> Unit, onReliability: () -> Unit, onRoute: (String) -> Unit = {}) {
     val context = LocalContext.current
     val c = Rem.colors
     val scope = rememberCoroutineScope()
@@ -151,6 +157,14 @@ fun SettingsScreen(onBack: () -> Unit, onReliability: () -> Unit) {
         item {
             Caption("Appearance")
             GroupedCard {
+                Column(Modifier.padding(start = 18.dp, end = 18.dp, top = 14.dp, bottom = 4.dp)) {
+                    Text("Theme", style = MaterialTheme.typography.bodyLarge, color = c.label)
+                    Spacer(Modifier.height(10.dp))
+                    app.rem.ui.components.SegmentedControl(
+                        app.rem.data.ThemeMode.entries.map { it.label }, s.theme.ordinal,
+                        { i -> update { it.copy(theme = app.rem.data.ThemeMode.entries[i]) } },
+                    )
+                }
                 Row(Modifier.padding(18.dp), horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text("Accent", style = MaterialTheme.typography.bodyLarge, color = c.label, modifier = Modifier.weight(1f))
                     Accent.entries.forEach { a ->
@@ -184,6 +198,40 @@ fun SettingsScreen(onBack: () -> Unit, onReliability: () -> Unit) {
                     RowDivider(54.dp)
                     SettingRow("Card time", value = formatTime(s.morningCardTime), valueColor = c.gold, onClick = { timeFor = "card" to s.morningCardTime })
                 }
+                RowDivider(54.dp)
+                SwitchRow("Bedtime summary", s.bedtimeSummary, { on -> update { it.copy(bedtimeSummary = on) } }, icon = Icons.Rounded.Bedtime, iconColor = c.secondaryLabel,
+                    subtitle = "At ${formatTime(s.bedtime.minusMinutes(30))}: what's left today, with “Move to tomorrow”")
+                RowDivider(54.dp)
+                SwitchRow("Water reminders", s.waterEnabled, { on -> update { it.copy(waterEnabled = on) } }, icon = Icons.Rounded.WaterDrop, iconColor = c.secondaryLabel,
+                    subtitle = if (s.waterEnabled) "${s.waterGlasses} glasses, spread between when you wake and sleep" else null)
+                if (s.waterEnabled) {
+                    RowDivider(54.dp)
+                    Row(Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("Glasses a day", style = MaterialTheme.typography.bodyLarge, color = c.label, modifier = Modifier.weight(1f))
+                        listOf(6, 8, 10, 12).forEach { n ->
+                            Box(
+                                Modifier.padding(start = 6.dp).size(38.dp).clip(CircleShape).background(if (s.waterGlasses == n) c.gold else c.fill)
+                                    .clickable { update { it.copy(waterGlasses = n) } },
+                                contentAlignment = Alignment.Center,
+                            ) { Text("$n", style = MaterialTheme.typography.labelLarge, color = if (s.waterGlasses == n) c.onIvory else c.label) }
+                        }
+                    }
+                }
+            }
+        }
+        item {
+            Caption("Shortcuts")
+            GroupedCard {
+                SettingRow("From notifications", icon = Icons.Rounded.NotificationsActive, iconColor = c.secondaryLabel,
+                    value = if (app.rem.capture.Captured.hasAccess(context)) "On" else "Off", subtitle = "Turn any notification into a reminder", onClick = { onRoute("captured") })
+                RowDivider(54.dp)
+                SettingRow("Bills from messages", icon = Icons.Rounded.Sms, iconColor = c.secondaryLabel,
+                    value = if (s.smsBills) "On" else "Off", subtitle = "Offer a reminder when a bill arrives by SMS", onClick = { onRoute("bills") })
+                RowDivider(54.dp)
+                SettingRow("Templates", icon = Icons.Rounded.AutoAwesomeMotion, iconColor = c.secondaryLabel, subtitle = "Travel, monthly bills, moving and more", onClick = { onRoute("templates") })
+                RowDivider(54.dp)
+                SettingRow("Quick Settings tile", icon = Icons.Rounded.Tune, iconColor = c.secondaryLabel, showChevron = false,
+                    subtitle = "Pull down your notification shade, tap the pencil, and drag “Add reminder” in")
             }
         }
         item {

@@ -88,7 +88,7 @@ private val HOURS_PRESETS = listOf(
 )
 
 @Composable
-fun WorkScreen(onOpen: (Long) -> Unit) {
+fun WorkScreen(initialBoard: Boolean = false, onOpen: (Long) -> Unit) {
     val context = LocalContext.current
     val c = Rem.colors
     val scope = rememberCoroutineScope()
@@ -98,7 +98,7 @@ fun WorkScreen(onOpen: (Long) -> Unit) {
     val all by remember { container.repository.observeActive() }.collectAsState(emptyList())
     val projects by remember { container.database.projects().observeAll() }.collectAsState(emptyList())
     var project by remember { mutableStateOf<Long?>(null) }
-    var board by remember { mutableStateOf(false) }
+    var board by remember { mutableStateOf(initialBoard) }
     var input by remember { mutableStateOf("") }
     var acting by remember { mutableStateOf<Reminder?>(null) }
     var askWho by remember { mutableStateOf<Reminder?>(null) }
@@ -108,6 +108,9 @@ fun WorkScreen(onOpen: (Long) -> Unit) {
     val haptics = rememberHaptics()
 
     val tasks = all.filter { it.space == Space.WORK && (project == null || it.projectId == project) }
+    val weekAgo = remember { java.time.Instant.now().minus(java.time.Duration.ofDays(7)) }
+    val completed by remember { container.repository.observeCompletedSince(weekAgo) }.collectAsState(emptyList())
+    val doneRecent = completed.filter { it.space == Space.WORK && it.status == app.rem.core.model.Status.DONE }
     fun statusOf(r: Reminder) = r.workStatus?.let { runCatching { WorkStatus.valueOf(it) }.getOrNull() } ?: WorkStatus.TODO
     val now = LocalDateTime.now()
     val hours = settings.workHours
@@ -192,21 +195,27 @@ fun WorkScreen(onOpen: (Long) -> Unit) {
             }
         } else {
             item {
-                LazyRow(Modifier.padding(top = 18.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    items(order) { st ->
-                        val group = tasks.filter { statusOf(it) == st }
-                        Column(Modifier.width(260.dp).noirSurface().padding(12.dp)) {
-                            Text("${st.label.uppercase()}  ·  ${group.size}", style = MaterialTheme.typography.labelSmall, color = if (st == WorkStatus.DOING) c.gold else c.secondaryLabel, modifier = Modifier.padding(start = 4.dp, bottom = 10.dp))
-                            group.forEach { t ->
-                                Column(Modifier.padding(bottom = 8.dp).fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(c.elevated).clickable { acting = t }.padding(12.dp)) {
-                                    Text(t.title, style = MaterialTheme.typography.titleSmall, color = c.label)
-                                    taskMeta(t, projects).takeIf { it.isNotEmpty() }?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = c.secondaryLabel) }
-                                }
-                            }
-                            if (group.isEmpty()) Text("Nothing here", style = MaterialTheme.typography.bodySmall, color = c.tertiaryLabel, modifier = Modifier.padding(4.dp))
-                        }
-                    }
+                val board = BOARD_COLUMNS.associateWith { st ->
+                    if (st == WorkStatus.DONE) doneRecent.filter { project == null || it.projectId == project }
+                    else tasks.filter { statusOf(it) == st }.sortedWith(compareBy(nullsLast()) { it.dueAt })
                 }
+                KanbanBoard(
+                    board, projects,
+                    onMove = { t, to ->
+                        scope.launch {
+                            when {
+                                t.status == app.rem.core.model.Status.DONE -> container.service.save(
+                                    t.copy(status = app.rem.core.model.Status.ACTIVE, completedAt = null, workStatus = to.name),
+                                ).also { if (to == WorkStatus.WAITING) askWho = container.repository.get(t.id) }
+                                to == WorkStatus.WAITING -> askWho = t
+                                else -> spaces.setStatus(t, to)
+                            }
+                        }
+                    },
+                    onTap = { t -> if (t.status == app.rem.core.model.Status.DONE) onOpen(t.id) else acting = t },
+                    modifier = Modifier.padding(top = 18.dp),
+                )
+                Text("Press and hold a card to drag it to another column.", style = MaterialTheme.typography.bodySmall, color = c.tertiaryLabel, modifier = Modifier.padding(top = 10.dp, start = 4.dp))
             }
         }
     }
