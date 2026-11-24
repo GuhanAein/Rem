@@ -145,6 +145,9 @@ Voice works in every space as well. When the input field is empty, its send butt
 - **Shopping list**: the open items on your first list; tap one to mark it bought.
 - **Work: next up**: in-progress tasks first, then by due time; tick to finish.
 
+## Download
+Every push to `main` publishes a GitHub Release with the APK attached. Open the repository's **Releases** page, download `Rem-<version>.apk` on your phone and open it. You may need to allow installs from your browser or file manager.
+
 ## Build
 Requirements: JDK 17+ and the Android SDK (platform 35).
 
