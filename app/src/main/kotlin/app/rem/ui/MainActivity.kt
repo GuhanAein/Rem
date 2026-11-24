@@ -8,8 +8,14 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionLayout
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.runtime.CompositionLocalProvider
+import app.rem.ui.motion.LocalNavAnimatedScope
+import app.rem.ui.motion.LocalSharedTransitionScope
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -46,12 +52,14 @@ class MainActivity : ComponentActivity() {
         handleIntent(intent)
         setContent {
             RemTheme {
+                androidx.compose.runtime.CompositionLocalProvider(app.rem.ui.motion.LocalAmbientMotion provides app.rem.ui.motion.systemAnimationsEnabled(this@MainActivity)) {
                 RemNavHost(
                     sharedText = sharedText,
                     onSharedConsumed = { sharedText = null },
                     openId = openId,
                     onOpenConsumed = { openId = null },
                 )
+                }
             }
         }
     }
@@ -74,6 +82,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 private fun RemNavHost(sharedText: String?, onSharedConsumed: () -> Unit, openId: Long?, onOpenConsumed: () -> Unit) {
     val context = LocalContext.current
@@ -87,13 +96,15 @@ private fun RemNavHost(sharedText: String?, onSharedConsumed: () -> Unit, openId
         }
     }
 
+    SharedTransitionLayout {
+    CompositionLocalProvider(LocalSharedTransitionScope provides this) {
     NavHost(
         navController = nav,
         startDestination = start,
-        enterTransition = { slideInHorizontally { it / 3 } + fadeIn() },
-        exitTransition = { fadeOut() },
-        popEnterTransition = { fadeIn() },
-        popExitTransition = { slideOutHorizontally { it / 3 } + fadeOut() },
+        enterTransition = { fadeIn(tween(320)) + scaleIn(tween(320), initialScale = 0.96f) },
+        exitTransition = { fadeOut(tween(220)) },
+        popEnterTransition = { fadeIn(tween(300)) },
+        popExitTransition = { fadeOut(tween(260)) + scaleOut(tween(260), targetScale = 0.96f) },
     ) {
         composable("onboarding") {
             OnboardingScreen(onFinished = { nav.navigate("home") { popUpTo("onboarding") { inclusive = true } } })
@@ -104,6 +115,7 @@ private fun RemNavHost(sharedText: String?, onSharedConsumed: () -> Unit, openId
                 vm.setNeedsSetup(!readSetupStatus(context).essentialsOk)
                 onPauseOrDispose { }
             }
+            CompositionLocalProvider(LocalNavAnimatedScope provides this) {
             HomeScreen(
                 viewModel = vm,
                 quickAddPrefill = sharedText,
@@ -112,6 +124,7 @@ private fun RemNavHost(sharedText: String?, onSharedConsumed: () -> Unit, openId
                 onMoreOptions = { text -> nav.navigate("edit?text=${Uri.encode(text)}") },
                 onSetup = { nav.navigate("setup") },
             )
+            }
         }
         composable(
             "edit?id={id}&text={text}",
@@ -123,8 +136,12 @@ private fun RemNavHost(sharedText: String?, onSharedConsumed: () -> Unit, openId
             val id = entry.arguments?.getLong("id") ?: 0L
             val text = entry.arguments?.getString("text")
             val vm: EditViewModel = viewModel(factory = viewModelFactory { initializer { EditViewModel(context.container, id, text) } })
-            EditScreen(vm, onBack = { nav.popBackStack() })
+            CompositionLocalProvider(LocalNavAnimatedScope provides this) {
+                EditScreen(vm, onBack = { nav.popBackStack() })
+            }
         }
         composable("setup") { SetupScreen(onBack = { nav.popBackStack() }) }
+    }
+    }
     }
 }

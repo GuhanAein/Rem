@@ -5,6 +5,25 @@ import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.graphics.graphicsLayer
+import app.rem.ui.motion.AuroraBackground
+import app.rem.ui.motion.LocalAmbientMotion
+import app.rem.ui.motion.floating
+import app.rem.ui.motion.ringing
+import app.rem.ui.motion.shimmer
+import kotlinx.coroutines.delay
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -91,7 +110,8 @@ fun OnboardingScreen(onFinished: () -> Unit) {
     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         HorizontalPager(pager, Modifier.fillMaxSize()) { page ->
             if (page < SLIDES.size) {
-                SlidePage(page, SLIDES[page])
+                val offset = (pager.currentPage - page) + pager.currentPageOffsetFraction
+                SlidePage(page, SLIDES[page], pageOffset = offset)
             } else {
                 Column(Modifier.fillMaxSize().statusBarsPadding().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(top = 40.dp, bottom = 140.dp)) {
                     PermissionsContent(
@@ -143,39 +163,62 @@ fun OnboardingScreen(onFinished: () -> Unit) {
 }
 
 @Composable
-fun SlidePage(index: Int, slide: Slide) {
-    Column(
-        Modifier.fillMaxSize().statusBarsPadding().padding(horizontal = 28.dp).padding(top = 56.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Box(Modifier.size(300.dp), contentAlignment = Alignment.Center) {
-            when (index) {
-                0 -> Constellation()
-                1 -> HeroIcon(Icons.Rounded.Alarm, Rem.extras.alarmGradient)
-                else -> TypingDemo()
+fun SlidePage(index: Int, slide: Slide, pageOffset: Float = 0f) {
+    Box(Modifier.fillMaxSize()) {
+        AuroraBackground(
+            base = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.background),
+            blobs = listOf(Color(0xFF8B7CFF).copy(alpha = 0.22f), Color(0xFFFF7AC6).copy(alpha = 0.14f), Color(0xFF38BDF8).copy(alpha = 0.14f)),
+            speedMs = 18000,
+        )
+        Column(
+            Modifier.fillMaxSize().statusBarsPadding().padding(horizontal = 28.dp).padding(top = 56.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Box(
+                Modifier.size(300.dp).graphicsLayer {
+                    translationX = pageOffset * size.width * 0.55f
+                    alpha = 1f - kotlin.math.abs(pageOffset).coerceIn(0f, 1f)
+                    val sc = 1f - 0.15f * kotlin.math.abs(pageOffset).coerceIn(0f, 1f)
+                    scaleX = sc; scaleY = sc
+                },
+                contentAlignment = Alignment.Center,
+            ) {
+                when (index) {
+                    0 -> Constellation()
+                    1 -> AlarmArt()
+                    else -> TypingDemo()
+                }
+            }
+            Spacer(Modifier.height(28.dp))
+            Column(
+                Modifier.graphicsLayer { translationX = pageOffset * size.width * 0.25f; alpha = 1f - kotlin.math.abs(pageOffset).coerceIn(0f, 1f) },
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(slide.title, style = MaterialTheme.typography.displaySmall, textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onBackground)
+                Spacer(Modifier.height(14.dp))
+                Text(slide.body, style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
-        Spacer(Modifier.height(28.dp))
-        Text(slide.title, style = MaterialTheme.typography.displaySmall, textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onBackground)
-        Spacer(Modifier.height(14.dp))
-        Text(slide.body, style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
 @Composable
 private fun Constellation() {
+    val t = if (LocalAmbientMotion.current) {
+        val orbit by rememberInfiniteTransition(label = "orbit").animateFloat(0f, 1f, infiniteRepeatable(tween(26000, easing = LinearEasing)), label = "o")
+        orbit
+    } else 0f
     Box(Modifier.size(300.dp), contentAlignment = Alignment.Center) {
-        Box(Modifier.size(240.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.06f)))
-        Box(Modifier.size(170.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)))
-        HeroIcon(Icons.Rounded.NotificationsActive, Rem.extras.heroGradient, size = 104.dp)
-        val spots = listOf(
-            Category.MEDICINE to (-110 to -80), Category.BILL to (105 to -95), Category.BIRTHDAY to (-125 to 40),
-            Category.VEHICLE to (120 to 30), Category.PET to (-60 to 120), Category.DOCUMENT to (70 to 118),
-            Category.HEALTH to (0 to -135),
-        )
-        spots.forEach { (cat, xy) ->
+        PulseRings(MaterialTheme.colorScheme.primary, 260.dp)
+        HeroIcon(Icons.Rounded.NotificationsActive, Rem.extras.heroGradient, size = 104.dp, ring = true)
+        val cats = listOf(Category.HEALTH, Category.BILL, Category.VEHICLE, Category.DOCUMENT, Category.PET, Category.BIRTHDAY, Category.MEDICINE)
+        cats.forEachIndexed { i, cat ->
+            val angle = (t + i / cats.size.toFloat()) * 2f * kotlin.math.PI.toFloat() - kotlin.math.PI.toFloat() / 2
+            val radius = if (i % 2 == 0) 128f else 112f
             Box(
-                Modifier.offset(xy.first.dp, xy.second.dp)
+                Modifier
+                    .offset((kotlin.math.cos(angle) * radius).dp, (kotlin.math.sin(angle) * radius).dp)
+                    .floating(4f, 2200 + i * 300, i * 0.17f)
                     .shadow(8.dp, RoundedCornerShape(16.dp))
                     .clip(RoundedCornerShape(16.dp))
                     .background(MaterialTheme.colorScheme.surface)
@@ -185,35 +228,107 @@ private fun Constellation() {
     }
 }
 
+/** Expanding rings, like sound waves. */
 @Composable
-private fun HeroIcon(icon: ImageVector, brush: androidx.compose.ui.graphics.Brush, size: androidx.compose.ui.unit.Dp = 150.dp) {
-    Box(
-        Modifier.size(size).shadow(30.dp, CircleShape, ambientColor = Color(0xFF5B4BFF), spotColor = Color(0xFF5B4BFF)).clip(CircleShape).background(brush),
-        contentAlignment = Alignment.Center,
-    ) { Icon(icon, null, tint = Color.White, modifier = Modifier.size(size * 0.46f)) }
+private fun PulseRings(color: Color, size: androidx.compose.ui.unit.Dp, count: Int = 3, periodMs: Int = 2600) {
+    val t = if (LocalAmbientMotion.current) {
+        val wave by rememberInfiniteTransition(label = "pulse").animateFloat(0f, 1f, infiniteRepeatable(tween(periodMs, easing = LinearEasing)), label = "w")
+        wave
+    } else 0.4f
+    Box(Modifier.size(size), contentAlignment = Alignment.Center) {
+        repeat(count) { i ->
+            val p = (t + i / count.toFloat()) % 1f
+            Box(
+                Modifier.size(size).graphicsLayer { scaleX = 0.35f + 0.65f * p; scaleY = 0.35f + 0.65f * p; alpha = (1f - p) * 0.5f }
+                    .clip(CircleShape).background(color.copy(alpha = 0.18f)),
+            )
+        }
+    }
 }
 
 @Composable
+private fun AlarmArt() {
+    Box(Modifier.size(300.dp), contentAlignment = Alignment.Center) {
+        PulseRings(Color(0xFFFF6B6B), 280.dp, count = 4, periodMs = 2000)
+        Box(Modifier.floating(5f, 2800)) {
+            HeroIcon(Icons.Rounded.Alarm, Rem.extras.alarmGradient, size = 150.dp, ring = true, ringPeriod = 1500, ringDegrees = 20f)
+        }
+        Text(
+            "Still waiting\u2026",
+            style = MaterialTheme.typography.labelLarge,
+            color = Color.White,
+            modifier = Modifier.offset(70.dp, (-110).dp).floating(4f, 2000, 0.5f)
+                .shadow(10.dp, RoundedCornerShape(50)).clip(RoundedCornerShape(50))
+                .background(Color(0xFFFF6B6B)).padding(horizontal = 12.dp, vertical = 6.dp),
+        )
+        Text(
+            "Every 5 min",
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.offset((-80).dp, 112.dp).floating(4f, 2400, 0.1f)
+                .shadow(10.dp, RoundedCornerShape(50)).clip(RoundedCornerShape(50))
+                .background(MaterialTheme.colorScheme.surface).padding(horizontal = 12.dp, vertical = 6.dp),
+        )
+    }
+}
+
+@Composable
+private fun HeroIcon(
+    icon: ImageVector,
+    brush: androidx.compose.ui.graphics.Brush,
+    size: androidx.compose.ui.unit.Dp = 150.dp,
+    ring: Boolean = false,
+    ringPeriod: Int = 2600,
+    ringDegrees: Float = 16f,
+) {
+    Box(
+        Modifier.size(size).shadow(30.dp, CircleShape, ambientColor = Color(0xFF5B4BFF), spotColor = Color(0xFF5B4BFF)).clip(CircleShape).background(brush).shimmer(3600),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(icon, null, tint = Color.White, modifier = Modifier.size(size * 0.46f).then(if (ring) Modifier.ringing(ringPeriod, ringDegrees) else Modifier))
+    }
+}
+
+private const val DEMO_TEXT = "Pay rent every 1st at 9am !1"
+
+@Composable
 private fun TypingDemo() {
+    val ambient = LocalAmbientMotion.current
+    var typed by remember { mutableStateOf(if (ambient) "" else DEMO_TEXT) }
+    var chips by remember { mutableStateOf(if (ambient) 0 else 4) }
+    if (ambient) {
+        LaunchedEffect(Unit) {
+            while (true) {
+                typed = ""; chips = 0
+                delay(500)
+                for (n in 1..DEMO_TEXT.length) { typed = DEMO_TEXT.take(n); delay(55) }
+                for (c in 1..4) { delay(260); chips = c }
+                delay(2600)
+            }
+        }
+    }
     Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-        Surface(shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.surface, shadowElevation = 10.dp, modifier = Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(20.dp)) {
+        Surface(shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.surface, shadowElevation = 10.dp, modifier = Modifier.fillMaxWidth().floating(3f, 3400)) {
+            Column(Modifier.padding(20.dp).height(170.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Rounded.AutoAwesome, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(6.dp))
                     Text("You type", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
                 }
                 Spacer(Modifier.height(10.dp))
-                Text("Pay rent every 1st at 9am !1", style = MaterialTheme.typography.titleLarge)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(typed, style = MaterialTheme.typography.titleMedium, maxLines = 1)
+                    Box(Modifier.padding(start = 2.dp).width(2.dp).height(22.dp).background(MaterialTheme.colorScheme.primary))
+                }
                 Spacer(Modifier.height(16.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    DemoChip("1 Dec · 9:00 AM", MaterialTheme.colorScheme.primary)
-                    DemoChip("Monthly", Color(0xFF06B6D4))
+                    DemoPop(chips >= 1) { DemoChip("1 Dec \u00B7 9:00 AM", MaterialTheme.colorScheme.primary) }
+                    DemoPop(chips >= 2) { DemoChip("Monthly", Color(0xFF06B6D4)) }
                 }
                 Spacer(Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    DemoChip("Bill", Color(0xFF8B5CF6))
-                    DemoChip("High priority", Color(0xFFEF4444))
+                    DemoPop(chips >= 3) { DemoChip("Bill", Color(0xFF8B5CF6)) }
+                    DemoPop(chips >= 4) { DemoChip("High priority", Color(0xFFEF4444)) }
                 }
             }
         }
@@ -224,6 +339,15 @@ private fun TypingDemo() {
             Text("Understood on your phone. Nothing leaves it.", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
+}
+
+@Composable
+private fun DemoPop(visible: Boolean, content: @Composable () -> Unit) {
+    AnimatedVisibility(
+        visible = visible,
+        enter = scaleIn(spring(dampingRatio = 0.45f, stiffness = Spring.StiffnessMedium), initialScale = 0.3f) + fadeIn(),
+        exit = fadeOut(),
+    ) { content() }
 }
 
 @Composable
@@ -290,7 +414,10 @@ private fun PermissionRow(icon: ImageVector, title: String, subtitle: String, gr
                 Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             if (granted) {
-                Box(Modifier.size(28.dp).clip(CircleShape).background(Rem.extras.success), contentAlignment = Alignment.Center) {
+                val ambient = LocalAmbientMotion.current
+                val pop = remember { androidx.compose.animation.core.Animatable(if (ambient) 0f else 1f) }
+                LaunchedEffect(Unit) { pop.animateTo(1f, spring(dampingRatio = 0.4f, stiffness = Spring.StiffnessMedium)) }
+                Box(Modifier.size(28.dp).graphicsLayer { scaleX = pop.value; scaleY = pop.value }.clip(CircleShape).background(Rem.extras.success), contentAlignment = Alignment.Center) {
                     Icon(Icons.Rounded.Check, "Allowed", tint = Color.White, modifier = Modifier.size(18.dp))
                 }
             } else {
@@ -298,7 +425,7 @@ private fun PermissionRow(icon: ImageVector, title: String, subtitle: String, gr
                     "Allow",
                     style = MaterialTheme.typography.labelLarge,
                     color = Color.White,
-                    modifier = Modifier.clip(RoundedCornerShape(50)).background(Rem.extras.accentGradient).padding(horizontal = 14.dp, vertical = 7.dp),
+                    modifier = Modifier.clip(RoundedCornerShape(50)).background(Rem.extras.accentGradient).shimmer(2600).padding(horizontal = 14.dp, vertical = 7.dp),
                 )
             }
         }

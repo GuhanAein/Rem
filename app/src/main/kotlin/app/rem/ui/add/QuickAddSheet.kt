@@ -1,6 +1,22 @@
 package app.rem.ui.add
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
+import androidx.compose.ui.graphics.graphicsLayer
+import app.rem.ui.motion.LocalAmbientMotion
+import kotlinx.coroutines.delay
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -196,13 +212,7 @@ fun QuickAddContent(
         }
         Spacer(Modifier.height(12.dp))
         Box(Modifier.padding(horizontal = 24.dp)) {
-            if (text.isEmpty()) {
-                Text(
-                    "Call mom tomorrow at 6pm",
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                )
-            }
+            if (text.isEmpty()) TypewriterPlaceholder()
             BasicTextField(
                 value = text,
                 onValueChange = onTextChange,
@@ -223,11 +233,12 @@ fun QuickAddContent(
         ) {
             PreviewChip(Icons.Rounded.CalendarMonth, describeDue(due, now.toLocalDate()), MaterialTheme.colorScheme.primary, active = due != null)
             val repeat = parsed.recurrence ?: RecurrenceRule.parseOrNull(category.defaultRecurrence?.takeIf { due != null })
-            repeat?.let { PreviewChip(Icons.Rounded.Repeat, it.describe(), Color(0xFF06B6D4), active = true) }
-            if (parsed.priority != Priority.NONE) {
+            PopIn(repeat != null) { PreviewChip(Icons.Rounded.Repeat, repeat?.describe() ?: "", Color(0xFF06B6D4), active = true) }
+            PopIn(parsed.priority != Priority.NONE) {
                 PreviewChip(Icons.Rounded.Flag, "${parsed.priority.label} priority", Color(0xFFEF4444), active = true)
             }
-            if (alarm) PreviewChip(Icons.Rounded.Alarm, "Rings until done", category.color, active = true)
+            PopIn(category != Category.TASK && hasText) { PreviewChip(category.icon, category.label, category.color, active = true) }
+            PopIn(alarm) { PreviewChip(Icons.Rounded.Alarm, "Rings until done", category.color, active = true) }
         }
 
         AnimatedVisibility(visible = due == null && hasText, enter = fadeIn(), exit = fadeOut()) {
@@ -314,6 +325,7 @@ fun QuickAddContent(
 private fun PreviewChip(icon: ImageVector, text: String, tint: Color, active: Boolean) {
     Row(
         Modifier
+            .animateContentSize(spring(dampingRatio = 0.8f, stiffness = Spring.StiffnessMediumLow))
             .clip(RoundedCornerShape(12.dp))
             .background(if (active) tint.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surfaceContainer)
             .border(1.dp, if (active) tint.copy(alpha = 0.25f) else Color.Transparent, RoundedCornerShape(12.dp))
@@ -322,6 +334,55 @@ private fun PreviewChip(icon: ImageVector, text: String, tint: Color, active: Bo
     ) {
         Icon(icon, null, tint = if (active) tint else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
         Spacer(Modifier.width(6.dp))
-        Text(text, style = MaterialTheme.typography.labelLarge, color = if (active) tint else MaterialTheme.colorScheme.onSurfaceVariant)
+        AnimatedContent(
+            targetState = text,
+            transitionSpec = { (slideInVertically { it } + fadeIn()) togetherWith (slideOutVertically { -it } + fadeOut()) },
+            label = "chipText",
+        ) { t -> Text(t, style = MaterialTheme.typography.labelLarge, color = if (active) tint else MaterialTheme.colorScheme.onSurfaceVariant) }
+    }
+}
+
+@Composable
+private fun PopIn(visible: Boolean, content: @Composable () -> Unit) {
+    AnimatedVisibility(
+        visible = visible,
+        enter = scaleIn(spring(dampingRatio = 0.45f, stiffness = Spring.StiffnessMedium), initialScale = 0.4f) + fadeIn(),
+        exit = scaleOut(targetScale = 0.6f) + fadeOut(),
+    ) { content() }
+}
+
+private val PLACEHOLDERS = listOf(
+    "Call mom tomorrow at 6pm",
+    "Take vitamins every day 8am",
+    "Pay rent every 1st !1",
+    "Renew passport on 5 Dec",
+    "Gym every mon wed fri 7am",
+)
+
+/** Types out example sentences, pauses, erases, and moves on: shows what Rem can understand. */
+@Composable
+private fun TypewriterPlaceholder() {
+    val ambient = LocalAmbientMotion.current
+    var shown by remember { mutableStateOf(if (ambient) "" else PLACEHOLDERS[0]) }
+    if (ambient) {
+        LaunchedEffect(Unit) {
+            var i = 0
+            while (true) {
+                val target = PLACEHOLDERS[i % PLACEHOLDERS.size]
+                for (n in 1..target.length) { shown = target.take(n); delay(45) }
+                delay(1600)
+                for (n in target.length downTo 0) { shown = target.take(n); delay(18) }
+                delay(250)
+                i++
+            }
+        }
+    }
+    val caret = if (ambient) {
+        val c by rememberInfiniteTransition(label = "caret").animateFloat(1f, 0f, infiniteRepeatable(tween(530), RepeatMode.Reverse), label = "c")
+        c
+    } else 1f
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(shown, style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
+        Box(Modifier.padding(start = 2.dp).width(2.dp).height(26.dp).graphicsLayer { alpha = if (ambient) caret else 1f }.background(MaterialTheme.colorScheme.primary))
     }
 }

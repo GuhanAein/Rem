@@ -16,6 +16,22 @@
 - **Share to Rem:** share any text from another app to create a reminder.
 - Light and dark themes, Material 3, edge-to-edge.
 
+## Motion
+![Rem showreel](docs/motion/showreel.gif)
+
+([Full-quality video](docs/motion/showreel.mp4). These are real frames rendered from the app's Compose code, not mock-ups.)
+
+- **Living hero:** an aurora gradient drifts behind the dashboard. It parallaxes and fades as you scroll, and a slim bar slides down in its place.
+- **Choreographed entrances:** sections and cards rise in one after another on spring physics.
+- **Satisfying completion:** the circle fills, the check mark draws itself, the title gets struck through, confetti bursts, and the list closes the gap with a spring. Finishing everything for today triggers a full-screen celebration.
+- **Rolling counters** for every number, a progress ring that sweeps, and an alarm icon that rings on alarm-style cards.
+- **Swipe feedback:** the colour deepens and the icon grows as you pull, with a "Done!" label when the swipe is far enough to count.
+- **Quick add:** the placeholder types out example sentences, and date, repeat, priority and category chips pop in as Rem understands you.
+- **Card to editor:** a shared-element container transform; the category bubble flies into place.
+- **Onboarding:** category bubbles orbit a ringing bell, alarm ripples pulse, a demo types itself, and pages slide with parallax.
+- **Alarm screen:** a pulsing aurora, a shaking icon, and a glowing, floating Done button.
+- Every tap gives press-scale feedback. All looping motion turns off when Android's "Remove animations" setting is on.
+
 ## Screenshots
 | Home | Dark | Quick add | Edit |
 |---|---|---|---|
@@ -32,7 +48,8 @@ Requirements: JDK 17+ and the Android SDK (platform 35).
 ./gradlew :core:test                 # parser, recurrence and planner tests (no Android SDK needed)
 ./gradlew :app:testDebugUnitTest     # Robolectric tests for alarms, notifications and home state
 ./gradlew :app:assembleDebug         # APK at app/build/outputs/apk/debug/app-debug.apk
-./gradlew :app:recordRoborazziDebug  # regenerate docs/screenshots
+./gradlew :app:recordRoborazziDebug  # regenerate docs/screenshots and motion frames
+./scripts/make-motion.sh             # turn motion frames into docs/motion/showreel.mp4 + .gif
 ```
 
 CI (GitHub Actions) runs every test and uploads the debug and release APKs as a build artifact.
@@ -48,6 +65,7 @@ app/   Android
   data/         Room database, repository, ReminderService (one place that changes data and alarms together)
   alarm/        AlarmScheduler (exact / alarm-clock / inexact fallback), receivers, Notifier, full-screen AlarmActivity
   ui/           Jetpack Compose: home, quick add, edit, onboarding and setup, theme
+  ui/motion/    Motion toolkit: springs, stagger, aurora, confetti, shimmer, counters, shared elements
 ```
 
 ## Docs

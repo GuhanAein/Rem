@@ -74,26 +74,26 @@ class ScreenshotTest {
     )
 
     @Test fun home_light() = captureRoboImage("$out/home_light.png") {
-        RemTheme(darkTheme = false) { HomeContent(buildHomeState(sample(), done, now, null, null, needsSetup = false)) }
+        StaticTheme(false) { HomeContent(buildHomeState(sample(), done, now, null, null, needsSetup = false)) }
     }
 
     @Test fun home_dark() = captureRoboImage("$out/home_dark.png") {
-        RemTheme(darkTheme = true) { HomeContent(buildHomeState(sample(), done, now, null, null, needsSetup = false)) }
+        StaticTheme(true) { HomeContent(buildHomeState(sample(), done, now, null, null, needsSetup = false)) }
     }
 
     @Test fun home_filtered_bills() = captureRoboImage("$out/home_filter.png") {
-        RemTheme(darkTheme = false) { HomeContent(buildHomeState(sample(), done, now, null, Category.MEDICINE, needsSetup = true)) }
+        StaticTheme(false) { HomeContent(buildHomeState(sample(), done, now, null, Category.MEDICINE, needsSetup = true)) }
     }
 
     @Test fun home_empty() = captureRoboImage("$out/home_empty.png") {
-        RemTheme(darkTheme = false) { HomeContent(buildHomeState(emptyList(), emptyList(), now, null, null, false)) }
+        StaticTheme(false) { HomeContent(buildHomeState(emptyList(), emptyList(), now, null, null, false)) }
     }
 
     @Test fun quick_add() = captureRoboImage("$out/quick_add.png") {
         val clock = Clock.fixed(now.atZone(ZoneId.systemDefault()).toInstant(), ZoneId.systemDefault())
         val text = "Pay rent every 1st at 9am !1"
         val parsed = QuickAddParser(clock).parse(text)
-        RemTheme(darkTheme = false) {
+        StaticTheme(false) {
             Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.4f))) {
                 Box(
                     Modifier.align(Alignment.BottomCenter).clip(RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp))
@@ -109,7 +109,7 @@ class ScreenshotTest {
     }
 
     @Test fun edit() = captureRoboImage("$out/edit.png") {
-        RemTheme(darkTheme = false) {
+        StaticTheme(false) {
             EditContent(
                 state = EditUiState(
                     loaded = true, isNew = false, title = "Take vitamin D", notes = "After breakfast, with water",
@@ -123,7 +123,7 @@ class ScreenshotTest {
     }
 
     @Test fun alarm() = captureRoboImage("$out/alarm.png") {
-        RemTheme(darkTheme = true) {
+        StaticTheme(true) {
             AlarmContent(
                 reminder = Reminder(id = 2, title = "Take vitamin D", dueAt = now, category = Category.MEDICINE, alertStyle = AlertStyle.ALARM),
                 now = now, onDone = {}, onSnooze = {}, onDismiss = {}, animate = false,
@@ -132,18 +132,26 @@ class ScreenshotTest {
     }
 
     @Test fun onboarding_everything() = captureRoboImage("$out/onboarding_1.png") {
-        RemTheme(darkTheme = false) { Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) { SlidePage(0, SLIDES[0]) } }
+        StaticTheme(false) { Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) { SlidePage(0, SLIDES[0]) } }
     }
 
     @Test fun onboarding_type() = captureRoboImage("$out/onboarding_3.png") {
-        RemTheme(darkTheme = false) { Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) { SlidePage(2, SLIDES[2]) } }
+        StaticTheme(false) { Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) { SlidePage(2, SLIDES[2]) } }
     }
 
     @Test fun setup() = captureRoboImage("$out/setup.png") {
-        RemTheme(darkTheme = false) {
+        StaticTheme(false) {
             Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).verticalScroll(rememberScrollState()).padding(20.dp).padding(top = 30.dp)) {
                 PermissionsContent(SetupStatus(notifications = true, exactAlarms = false, fullScreen = true, batteryUnrestricted = false), {}, {}, {}, {}, tip = "On Samsung: Settings › Battery › Background usage limits › add Rem to “Never sleeping apps”.")
             }
         }
+    }
+}
+
+/** Theme with ambient/looping motion frozen so screenshots are deterministic. */
+@androidx.compose.runtime.Composable
+fun StaticTheme(dark: Boolean, content: @androidx.compose.runtime.Composable () -> Unit) {
+    androidx.compose.runtime.CompositionLocalProvider(app.rem.ui.motion.LocalAmbientMotion provides false) {
+        RemTheme(darkTheme = dark, content = content)
     }
 }

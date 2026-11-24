@@ -80,6 +80,17 @@ import app.rem.core.model.Category
 import app.rem.core.model.Priority
 import app.rem.core.recurrence.Freq
 import app.rem.core.recurrence.describe
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.togetherWith
+import app.rem.ui.motion.sharedBounds
+import app.rem.ui.motion.sharedElement
+import app.rem.ui.motion.staggeredEntrance
 import app.rem.ui.components.CategoryBubble
 import app.rem.ui.components.GradientButton
 import app.rem.ui.components.SectionCard
@@ -127,8 +138,21 @@ fun EditContent(
     var showTime by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
     val accent = state.category.color
+    val sharedId = state.original?.id
+    val seen = remember { mutableSetOf<Any>() }
+    val animatedAccent by animateColorAsState(accent, tween(450), label = "accent")
 
-    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+    Box(
+        Modifier
+            .fillMaxSize()
+            .then(if (sharedId != null) Modifier.sharedBounds("card-$sharedId") else Modifier)
+            .background(MaterialTheme.colorScheme.background),
+    ) {
+        // A soft wash of the category colour that shifts when you change category.
+        Box(
+            Modifier.fillMaxWidth().height(260.dp)
+                .background(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(animatedAccent.copy(alpha = 0.16f), Color.Transparent))),
+        )
         LazyColumn(
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 120.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -145,9 +169,18 @@ fun EditContent(
 
             // Title + notes
             item {
-                Surface(shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.surface, border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
+                Surface(
+                    shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.surface,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                    modifier = Modifier.staggeredEntrance("title", 0, seen),
+                ) {
                     Row(Modifier.padding(18.dp)) {
-                        CategoryBubble(state.category, size = 48.dp, selected = true)
+                        AnimatedContent(
+                            targetState = state.category,
+                            transitionSpec = { (scaleIn(spring(dampingRatio = 0.45f)) + fadeIn()) togetherWith (scaleOut() + fadeOut()) },
+                            label = "bubble",
+                            modifier = if (sharedId != null) Modifier.sharedElement("bubble-$sharedId") else Modifier,
+                        ) { cat -> CategoryBubble(cat, size = 48.dp, selected = true) }
                         Spacer(Modifier.width(14.dp))
                         Column(Modifier.weight(1f)) {
                             Field(state.title, "What should I remind you?", MaterialTheme.typography.titleLarge) { v -> onChange { it.copy(title = v) } }
@@ -163,7 +196,7 @@ fun EditContent(
             }
 
             item {
-                SectionCard("Category", Icons.Rounded.Category) {
+                SectionCard("Category", Icons.Rounded.Category, modifier = Modifier.staggeredEntrance("sec1", 2, seen)) {
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Category.entries.forEach { cat ->
                             SelectPill(cat.label, cat == state.category, { onCategory(cat) }, icon = cat.icon, accent = cat.color)
@@ -173,7 +206,7 @@ fun EditContent(
             }
 
             item {
-                SectionCard("When", Icons.Rounded.Schedule) {
+                SectionCard("When", Icons.Rounded.Schedule, modifier = Modifier.staggeredEntrance("sec2", 3, seen)) {
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         Tile(Icons.Rounded.CalendarMonth, "Date", state.date?.let { formatDay(it, today) } ?: "No date", accent, Modifier.weight(1f)) { showDate = true }
                         Tile(Icons.Rounded.Schedule, "Time", formatTime(state.time), accent, Modifier.weight(1f), enabled = state.date != null) { showTime = true }
@@ -189,7 +222,7 @@ fun EditContent(
             }
 
             item {
-                SectionCard("Repeat", Icons.Rounded.Repeat) {
+                SectionCard("Repeat", Icons.Rounded.Repeat, modifier = Modifier.staggeredEntrance("sec3", 4, seen)) {
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         SelectPill("Never", state.repeat.freq == null, { onChange { it.copy(repeat = RepeatForm()) } }, accent = accent)
                         listOf(Freq.DAILY to "Daily", Freq.WEEKLY to "Weekly", Freq.MONTHLY to "Monthly", Freq.YEARLY to "Yearly").forEach { (f, label) ->
@@ -243,7 +276,7 @@ fun EditContent(
             }
 
             item {
-                SectionCard("Alerts", Icons.Rounded.Notifications) {
+                SectionCard("Alerts", Icons.Rounded.Notifications, modifier = Modifier.staggeredEntrance("sec4", 5, seen)) {
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         ALERT_CHOICES.forEach { m ->
                             val on = m in state.alertOffsets
@@ -256,7 +289,7 @@ fun EditContent(
             }
 
             item {
-                SectionCard("How to remind you", Icons.Rounded.NotificationsActive) {
+                SectionCard("How to remind you", Icons.Rounded.NotificationsActive, modifier = Modifier.staggeredEntrance("sec5", 6, seen)) {
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         StyleCard(Icons.Rounded.Notifications, "Notification", "A gentle ping", state.style == AlertStyle.NOTIFICATION, accent, Modifier.weight(1f)) {
                             onChange { it.copy(style = AlertStyle.NOTIFICATION) }
@@ -277,7 +310,7 @@ fun EditContent(
             }
 
             item {
-                SectionCard("Priority", Icons.Rounded.Flag) {
+                SectionCard("Priority", Icons.Rounded.Flag, modifier = Modifier.staggeredEntrance("sec6", 7, seen)) {
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Priority.entries.reversed().forEach { p ->
                             val c = p.color ?: MaterialTheme.colorScheme.onSurfaceVariant
@@ -289,7 +322,7 @@ fun EditContent(
 
             if (state.category == Category.BILL || state.amount.isNotBlank()) {
                 item {
-                    SectionCard("Amount", Icons.Rounded.Payments) {
+                    SectionCard("Amount", Icons.Rounded.Payments, modifier = Modifier.staggeredEntrance("sec7", 8, seen)) {
                         Field(state.amount, "e.g. ₹12,000", MaterialTheme.typography.titleLarge, KeyboardType.Text) { v -> onChange { it.copy(amount = v) } }
                     }
                 }

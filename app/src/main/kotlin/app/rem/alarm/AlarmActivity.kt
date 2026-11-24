@@ -71,6 +71,13 @@ import app.rem.ui.format.describeDue
 import app.rem.ui.format.formatLongDate
 import app.rem.ui.format.formatTime
 import app.rem.ui.theme.Rem
+import app.rem.ui.motion.AuroraBackground
+import app.rem.ui.motion.LocalAmbientMotion
+import app.rem.ui.motion.floating
+import app.rem.ui.motion.pressScale
+import app.rem.ui.motion.ringing
+import app.rem.ui.motion.shimmer
+import app.rem.ui.motion.staggeredEntrance
 import app.rem.ui.theme.RemTheme
 import kotlinx.coroutines.launch
 import java.time.LocalDateTime
@@ -102,6 +109,7 @@ class AlarmActivity : ComponentActivity() {
 
         setContent {
             RemTheme(darkTheme = true) {
+                androidx.compose.runtime.CompositionLocalProvider(app.rem.ui.motion.LocalAmbientMotion provides app.rem.ui.motion.systemAnimationsEnabled(this@AlarmActivity)) {
                 reminder?.let { r ->
                     AlarmContent(
                         reminder = r,
@@ -110,6 +118,7 @@ class AlarmActivity : ComponentActivity() {
                         onSnooze = { preset -> act { container.service.snooze(r.id, preset) } },
                         onDismiss = { act { container.service.dismiss(r.id) } },
                     )
+                }
                 }
             }
         }
@@ -171,21 +180,30 @@ fun AlarmContent(
     animate: Boolean = true,
 ) {
     val accent = reminder.category.color
-    val pulse = rememberInfiniteTransition(label = "pulse")
-    val wave by pulse.animateFloat(0f, 1f, infiniteRepeatable(tween(1800, easing = LinearEasing), RepeatMode.Restart), label = "wave")
-    val t = if (animate) wave else 0.45f
+    val t = if (animate && LocalAmbientMotion.current) {
+        val wave by rememberInfiniteTransition(label = "pulse").animateFloat(0f, 1f, infiniteRepeatable(tween(1800, easing = LinearEasing), RepeatMode.Restart), label = "wave")
+        wave
+    } else 0.45f
 
-    Box(Modifier.fillMaxSize().background(Rem.extras.alarmGradient)) {
+    val seen = androidx.compose.runtime.remember { mutableSetOf<Any>() }
+    Box(Modifier.fillMaxSize()) {
+        AuroraBackground(
+            base = Rem.extras.alarmGradient,
+            blobs = listOf(accent.copy(alpha = 0.8f), Color(0xFFA855F7), Color(0xFF38BDF8).copy(alpha = 0.6f)),
+            speedMs = 9000,
+        )
         Column(
             Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(horizontal = 24.dp, vertical = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Spacer(Modifier.height(24.dp))
-            Text(formatTime(now.toLocalTime()), color = Color.White, fontSize = 64.sp, fontWeight = FontWeight.Light, letterSpacing = (-2).sp)
-            Text(formatLongDate(now.toLocalDate()), color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.titleMedium)
+            Column(Modifier.staggeredEntrance("clock", 0, seen), horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(formatTime(now.toLocalTime()), color = Color.White, fontSize = 64.sp, fontWeight = FontWeight.Light, letterSpacing = (-2).sp)
+                Text(formatLongDate(now.toLocalDate()), color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.titleMedium)
+            }
 
             Spacer(Modifier.weight(1f))
-            Box(Modifier.size(260.dp), contentAlignment = Alignment.Center) {
+            Box(Modifier.size(260.dp).staggeredEntrance("art", 1, seen), contentAlignment = Alignment.Center) {
                 listOf(0f, 0.33f, 0.66f).forEach { phase ->
                     val p = (t + phase) % 1f
                     Box(
@@ -196,28 +214,35 @@ fun AlarmContent(
                 Box(
                     Modifier.size(120.dp).shadow(30.dp, CircleShape, ambientColor = accent, spotColor = accent).clip(CircleShape).background(Color.White),
                     contentAlignment = Alignment.Center,
-                ) { Icon(reminder.category.icon, null, tint = accent, modifier = Modifier.size(56.dp)) }
+                ) { Icon(reminder.category.icon, null, tint = accent, modifier = Modifier.size(56.dp).ringing(1400, 18f)) }
             }
             Spacer(Modifier.height(28.dp))
-            Text(reminder.category.label.uppercase(), color = Color.White.copy(alpha = 0.7f), style = app.rem.ui.theme.SectionLabel)
-            Spacer(Modifier.height(8.dp))
-            Text(reminder.title, color = Color.White, style = MaterialTheme.typography.headlineLarge, textAlign = TextAlign.Center)
-            Spacer(Modifier.height(6.dp))
-            Text(
-                listOfNotNull(describeDue(reminder.dueAt, now.toLocalDate()), reminder.amount).joinToString(" · "),
-                color = Color.White.copy(alpha = 0.75f),
-                style = MaterialTheme.typography.bodyLarge,
-            )
+            Column(Modifier.staggeredEntrance("title", 2, seen), horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(reminder.category.label.uppercase(), color = Color.White.copy(alpha = 0.7f), style = app.rem.ui.theme.SectionLabel)
+                Spacer(Modifier.height(8.dp))
+                Text(reminder.title, color = Color.White, style = MaterialTheme.typography.headlineLarge, textAlign = TextAlign.Center)
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    listOfNotNull(describeDue(reminder.dueAt, now.toLocalDate()), reminder.amount).joinToString(" · "),
+                    color = Color.White.copy(alpha = 0.75f),
+                    style = MaterialTheme.typography.bodyLarge,
+                )
+            }
             Spacer(Modifier.weight(1f))
 
+            val doneInteraction = androidx.compose.runtime.remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
             Row(
                 Modifier
+                    .staggeredEntrance("done", 3, seen)
+                    .pressScale(doneInteraction, 0.95f)
+                    .floating(2f, 1800)
                     .fillMaxWidth()
                     .height(68.dp)
-                    .shadow(20.dp, RoundedCornerShape(34.dp))
+                    .shadow(24.dp, RoundedCornerShape(34.dp), ambientColor = accent, spotColor = accent)
                     .clip(RoundedCornerShape(34.dp))
                     .background(Color.White)
-                    .clickable(role = Role.Button, onClickLabel = "Mark done", onClick = onDone),
+                    .shimmer(2200)
+                    .clickable(doneInteraction, androidx.compose.material3.ripple(), role = Role.Button, onClickLabel = "Mark done", onClick = onDone),
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -226,7 +251,7 @@ fun AlarmContent(
                 Text("Done", color = Color(0xFF14141F), style = MaterialTheme.typography.titleLarge)
             }
             Spacer(Modifier.height(14.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth().staggeredEntrance("snooze", 4, seen)) {
                 listOf(SnoozePreset.MIN_5, SnoozePreset.MIN_15, SnoozePreset.HOUR_1).forEach { p ->
                     Text(
                         p.label,
