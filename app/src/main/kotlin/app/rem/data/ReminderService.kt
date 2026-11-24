@@ -13,12 +13,15 @@ class ReminderService(
     private val planner: ReminderPlanner,
     private val scheduler: AlarmScheduler,
     private val notifier: Notifier,
+    /** Called after any change (used to refresh home-screen widgets). */
+    private val onChanged: suspend () -> Unit = {},
 ) {
     private val zone: ZoneId get() = ZoneId.systemDefault()
 
     suspend fun save(reminder: Reminder): Long {
         val id = repository.upsert(reminder)
         repository.get(id)?.let { scheduler.schedule(it, zone) }
+        onChanged()
         return id
     }
 
@@ -30,6 +33,7 @@ class ReminderService(
         notifier.cancel(id)
         scheduler.cancel(id)
         scheduler.schedule(after, zone)
+        onChanged()
         return before
     }
 
@@ -39,6 +43,7 @@ class ReminderService(
         repository.upsert(snoozed)
         notifier.cancel(id)
         scheduler.schedule(snoozed, zone)
+        onChanged()
     }
 
     /** Stops the current alarm/nag without completing; the reminder stays in the list. */
@@ -54,9 +59,11 @@ class ReminderService(
         scheduler.cancel(id)
         notifier.cancel(id)
         repository.delete(id)
+        onChanged()
     }
 
     suspend fun rescheduleAll() {
         repository.activeScheduled().forEach { scheduler.schedule(it, zone) }
+        onChanged()
     }
 }

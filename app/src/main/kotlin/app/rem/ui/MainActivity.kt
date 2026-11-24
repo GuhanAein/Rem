@@ -11,8 +11,6 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
 import androidx.compose.runtime.CompositionLocalProvider
 import app.rem.ui.motion.LocalNavAnimatedScope
 import app.rem.ui.motion.LocalSharedTransitionScope
@@ -36,6 +34,7 @@ import app.rem.ui.edit.EditScreen
 import app.rem.ui.edit.EditViewModel
 import app.rem.ui.home.HomeScreen
 import app.rem.ui.home.HomeViewModel
+import app.rem.ui.home.LaunchAction
 import app.rem.ui.onboarding.OnboardingScreen
 import app.rem.ui.onboarding.SetupScreen
 import app.rem.ui.onboarding.isOnboarded
@@ -43,7 +42,7 @@ import app.rem.ui.onboarding.readSetupStatus
 import app.rem.ui.theme.RemTheme
 
 class MainActivity : ComponentActivity() {
-    private var sharedText by mutableStateOf<String?>(null)
+    private var launchAction by mutableStateOf<LaunchAction?>(null)
     private var openId by mutableStateOf<Long?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -54,8 +53,8 @@ class MainActivity : ComponentActivity() {
             RemTheme {
                 androidx.compose.runtime.CompositionLocalProvider(app.rem.ui.motion.LocalAmbientMotion provides app.rem.ui.motion.systemAnimationsEnabled(this@MainActivity)) {
                 RemNavHost(
-                    sharedText = sharedText,
-                    onSharedConsumed = { sharedText = null },
+                    launchAction = launchAction,
+                    onLaunchConsumed = { launchAction = null },
                     openId = openId,
                     onOpenConsumed = { openId = null },
                 )
@@ -71,20 +70,24 @@ class MainActivity : ComponentActivity() {
 
     private fun handleIntent(intent: Intent?) {
         intent ?: return
-        if (intent.action == Intent.ACTION_SEND) {
-            sharedText = intent.getStringExtra(Intent.EXTRA_TEXT)?.take(300)
+        when (intent.action) {
+            Intent.ACTION_SEND -> launchAction = LaunchAction.QuickAdd(intent.getStringExtra(Intent.EXTRA_TEXT)?.take(300).orEmpty())
+            ACTION_QUICK_ADD -> launchAction = LaunchAction.QuickAdd()
+            ACTION_VOICE -> launchAction = LaunchAction.Voice
         }
         intent.getLongExtra(EXTRA_OPEN_ID, -1).takeIf { it > 0 }?.let { openId = it }
     }
 
     companion object {
         const val EXTRA_OPEN_ID = "openReminderId"
+        const val ACTION_QUICK_ADD = "app.rem.action.QUICK_ADD"
+        const val ACTION_VOICE = "app.rem.action.VOICE"
     }
 }
 
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
-private fun RemNavHost(sharedText: String?, onSharedConsumed: () -> Unit, openId: Long?, onOpenConsumed: () -> Unit) {
+private fun RemNavHost(launchAction: LaunchAction?, onLaunchConsumed: () -> Unit, openId: Long?, onOpenConsumed: () -> Unit) {
     val context = LocalContext.current
     val nav = rememberNavController()
     val start = if (isOnboarded(context)) "home" else "onboarding"
@@ -101,10 +104,10 @@ private fun RemNavHost(sharedText: String?, onSharedConsumed: () -> Unit, openId
     NavHost(
         navController = nav,
         startDestination = start,
-        enterTransition = { fadeIn(tween(320)) + scaleIn(tween(320), initialScale = 0.96f) },
-        exitTransition = { fadeOut(tween(220)) },
-        popEnterTransition = { fadeIn(tween(300)) },
-        popExitTransition = { fadeOut(tween(260)) + scaleOut(tween(260), targetScale = 0.96f) },
+        enterTransition = { fadeIn(tween(260)) },
+        exitTransition = { fadeOut(tween(200)) },
+        popEnterTransition = { fadeIn(tween(260)) },
+        popExitTransition = { fadeOut(tween(200)) },
     ) {
         composable("onboarding") {
             OnboardingScreen(onFinished = { nav.navigate("home") { popUpTo("onboarding") { inclusive = true } } })
@@ -118,8 +121,8 @@ private fun RemNavHost(sharedText: String?, onSharedConsumed: () -> Unit, openId
             CompositionLocalProvider(LocalNavAnimatedScope provides this) {
             HomeScreen(
                 viewModel = vm,
-                quickAddPrefill = sharedText,
-                onQuickAddConsumed = onSharedConsumed,
+                launchAction = launchAction,
+                onLaunchConsumed = onLaunchConsumed,
                 onOpen = { id -> nav.navigate("edit?id=$id") },
                 onMoreOptions = { text -> nav.navigate("edit?text=${Uri.encode(text)}") },
                 onSetup = { nav.navigate("setup") },

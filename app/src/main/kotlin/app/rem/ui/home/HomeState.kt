@@ -1,6 +1,5 @@
 package app.rem.ui.home
 
-import androidx.compose.ui.graphics.Color
 import app.rem.core.model.Category
 import app.rem.core.model.Reminder
 import app.rem.core.recurrence.RecurrenceRule
@@ -10,152 +9,121 @@ import app.rem.ui.format.describeLateness
 import app.rem.ui.format.formatDay
 import app.rem.ui.format.formatLongDate
 import app.rem.ui.format.formatTime
-import app.rem.ui.format.greetingFor
-import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.LocalDateTime
-import java.time.format.TextStyle
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-enum class SectionKind(val title: String, val accent: Color) {
-    OVERDUE("Overdue", Color(0xFFEF4444)),
-    TODAY("Today", Color(0xFF5B4BFF)),
-    TOMORROW("Tomorrow", Color(0xFFA855F7)),
-    WEEK("This week", Color(0xFF06B6D4)),
-    LATER("Later", Color(0xFF10B981)),
-    SOMEDAY("Someday", Color(0xFF94A3B8)),
-    DAY("Scheduled", Color(0xFF5B4BFF)),
-}
+/** The four smart lists at the top of the home screen. */
+enum class SmartList(val title: String) { TODAY("Today"), SCHEDULED("Scheduled"), OVERDUE("Overdue"), ALL("All") }
 
-data class HomeSection(val kind: SectionKind, val title: String, val items: List<ReminderCardModel>)
-
-data class DayChip(val date: LocalDate, val weekday: String, val dayOfMonth: Int, val count: Int, val isToday: Boolean)
+data class HomeSection(val key: String, val title: String, val items: List<ReminderCardModel>, val danger: Boolean = false)
 
 data class HomeUiState(
-    val greeting: String = "",
-    val headline: String = "",
-    val todayTotal: Int = 0,
-    val todayDone: Int = 0,
-    val laterTodayCount: Int = 0,
-    val overdueCount: Int = 0,
-    val upcomingCount: Int = 0,
-    val week: List<DayChip> = emptyList(),
-    val selectedDate: LocalDate? = null,
+    val dateLabel: String = "",
+    val list: SmartList = SmartList.TODAY,
+    val counts: Map<SmartList, Int> = emptyMap(),
     val categories: List<Pair<Category, Int>> = emptyList(),
     val selectedCategory: Category? = null,
     val sections: List<HomeSection> = emptyList(),
+    val todayTotal: Int = 0,
+    val todayDone: Int = 0,
     val needsSetup: Boolean = false,
     val loading: Boolean = true,
 ) {
     val isEmpty: Boolean get() = !loading && sections.all { it.items.isEmpty() }
     val progress: Float get() = if (todayTotal == 0) 0f else todayDone.toFloat() / todayTotal
+    val remainingToday: Int get() = (todayTotal - todayDone).coerceAtLeast(0)
 }
 
-/** Pure function: active + completed reminders and the current filters -> everything the home screen shows. */
+private val DATE_LABEL = DateTimeFormatter.ofPattern("EEEE d MMMM", Locale.ENGLISH)
+
 fun buildHomeState(
     active: List<Reminder>,
     completedToday: List<Reminder>,
     now: LocalDateTime,
-    selectedDate: LocalDate?,
+    list: SmartList,
     selectedCategory: Category?,
     needsSetup: Boolean,
 ): HomeUiState {
     val today = now.toLocalDate()
-    // Everything still needing attention today = overdue + due later today; these always add up.
-    val overdue = active.count { it.dueAt != null && it.dueAt!!.isBefore(now) }
-    val laterToday = active.count { it.dueAt?.toLocalDate() == today && !it.dueAt!!.isBefore(now) }
-    val upcoming = active.count { it.dueAt != null && it.dueAt!!.toLocalDate().isAfter(today) }
-    val doneToday = completedToday.size
-    val remainingToday = overdue + laterToday
-    val todayTotal = doneToday + remainingToday
+    fun isOverdue(r: Reminder) = r.dueAt != null && r.dueAt!!.isBefore(now)
+    fun isToday(r: Reminder) = r.dueAt?.toLocalDate() == today
 
-    val headline = when {
-        active.isEmpty() && doneToday == 0 -> "What should I\nremember for you?"
-        remainingToday == 0 -> "You're all\ncaught up today"
-        remainingToday == 1 -> "1 thing to\nremember today"
-        else -> "$remainingToday things to\nremember today"
-    }
-
-    val categories = active.groupingBy { it.category }.eachCount().toList().sortedByDescending { it.second }
-    val filtered = active.filter { selectedCategory == null || it.category == selectedCategory }
-
-    val week = (0 until 14).map { offset ->
-        val d = today.plusDays(offset.toLong())
-        DayChip(
-            date = d,
-            weekday = d.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.ENGLISH),
-            dayOfMonth = d.dayOfMonth,
-            count = active.count { it.dueAt?.toLocalDate() == d },
-            isToday = offset == 0,
-        )
-    }
+    val counts = mapOf(
+        SmartList.TODAY to active.count { isToday(it) || isOverdue(it) },
+        SmartList.SCHEDULED to active.count { it.dueAt != null },
+        SmartList.OVERDUE to active.count(::isOverdue),
+        SmartList.ALL to active.size,
+    )
+    val remaining = counts.getValue(SmartList.TODAY)
+    val done = completedToday.size
 
     fun card(r: Reminder): ReminderCardModel {
         val due = r.dueAt
         val late = due != null && due.isBefore(now)
-        val dueText = when {
-            due == null -> "Anytime"
+        val text = when {
+            due == null -> r.category.label
             late && due.toLocalDate() == today -> "${formatTime(due.toLocalTime())} · ${describeLateness(due, now)}"
-            late -> describeLateness(due, now)
-            due.toLocalDate() == today || due.toLocalDate() == selectedDate -> formatTime(due.toLocalTime())
-            due.toLocalDate() == today.plusDays(1) -> "Tomorrow · ${formatTime(due.toLocalTime())}"
-            else -> "${formatDay(due.toLocalDate(), today)} · ${formatTime(due.toLocalTime())}"
+            late -> "${formatDay(due.toLocalDate(), today)}, ${formatTime(due.toLocalTime())}"
+            due.toLocalDate() == today -> formatTime(due.toLocalTime())
+            else -> "${formatDay(due.toLocalDate(), today)}, ${formatTime(due.toLocalTime())}"
         }
         return ReminderCardModel(
-            id = r.id,
-            title = r.title,
-            category = r.category,
-            priority = r.priority,
-            dueText = dueText,
-            isLate = late,
-            repeatText = RecurrenceRule.parseOrNull(r.recurrence)?.describe(),
-            alertStyle = r.alertStyle,
-            amount = r.amount,
-            notes = r.notes,
-            nagging = r.nagMinutes != null,
+            id = r.id, title = r.title, category = r.category, priority = r.priority, dueText = text, isLate = late,
+            repeatText = RecurrenceRule.parseOrNull(r.recurrence)?.describe(), alertStyle = r.alertStyle,
+            amount = r.amount, notes = r.notes, nagging = r.nagMinutes != null,
         )
     }
 
-    val sections = if (selectedDate != null && selectedDate != today) {
-        listOf(
-            HomeSection(
-                SectionKind.DAY,
-                formatLongDate(selectedDate),
-                filtered.filter { it.dueAt?.toLocalDate() == selectedDate }.map(::card),
-            ),
+    val pool = active.filter { selectedCategory == null || it.category == selectedCategory }
+    val sections: List<HomeSection> = when (list) {
+        SmartList.TODAY -> listOf(
+            HomeSection("overdue", "Overdue", pool.filter { isOverdue(it) }.map(::card), danger = true),
+            HomeSection("today", "Today", pool.filter { isToday(it) && !isOverdue(it) }.map(::card)),
         )
-    } else {
-        val endOfWeek = today.with(java.time.temporal.TemporalAdjusters.nextOrSame(DayOfWeek.SUNDAY))
-        val groups = filtered.groupBy { r ->
-            val due = r.dueAt
-            when {
-                due == null -> SectionKind.SOMEDAY
-                due.isBefore(now) -> SectionKind.OVERDUE
-                due.toLocalDate() == today -> SectionKind.TODAY
-                due.toLocalDate() == today.plusDays(1) -> SectionKind.TOMORROW
-                !due.toLocalDate().isAfter(endOfWeek) -> SectionKind.WEEK
-                else -> SectionKind.LATER
-            }
-        }
-        SectionKind.entries.filter { it != SectionKind.DAY }.mapNotNull { kind ->
-            groups[kind]?.let { HomeSection(kind, kind.title, it.map(::card)) }
-        }
-    }
+        SmartList.OVERDUE -> listOf(HomeSection("overdue", "Overdue", pool.filter(::isOverdue).map(::card), danger = true))
+        SmartList.SCHEDULED -> scheduledSections(pool.filter { it.dueAt != null }, today, now, ::card)
+        SmartList.ALL -> scheduledSections(pool.filter { it.dueAt != null }, today, now, ::card) +
+            HomeSection("none", "No date", pool.filter { it.dueAt == null }.map(::card))
+    }.filter { it.items.isNotEmpty() }
 
     return HomeUiState(
-        greeting = greetingFor(now.toLocalTime()),
-        headline = headline,
-        todayTotal = todayTotal,
-        todayDone = doneToday,
-        laterTodayCount = laterToday,
-        overdueCount = overdue,
-        upcomingCount = upcoming,
-        week = week,
-        selectedDate = selectedDate ?: today,
-        categories = categories,
+        dateLabel = now.format(DATE_LABEL).uppercase(Locale.ENGLISH),
+        list = list,
+        counts = counts,
+        categories = active.groupingBy { it.category }.eachCount().toList().sortedBy { it.first.ordinal },
         selectedCategory = selectedCategory,
         sections = sections,
+        todayTotal = remaining + done,
+        todayDone = done,
         needsSetup = needsSetup,
         loading = false,
     )
+}
+
+/** Overdue, then one section per day for the next week, then "Later". */
+private fun scheduledSections(
+    items: List<Reminder>,
+    today: LocalDate,
+    now: LocalDateTime,
+    card: (Reminder) -> ReminderCardModel,
+): List<HomeSection> {
+    val overdue = items.filter { it.dueAt!!.isBefore(now) }
+    val upcoming = items - overdue.toSet()
+    val byDay = upcoming.groupBy { it.dueAt!!.toLocalDate() }
+    val days = (0L..6L).map { today.plusDays(it) }
+    val later = upcoming.filter { it.dueAt!!.toLocalDate().isAfter(today.plusDays(6)) }
+    return buildList {
+        add(HomeSection("overdue", "Overdue", overdue.map(card), danger = true))
+        days.forEach { d ->
+            val title = when (d) {
+                today -> "Today"
+                today.plusDays(1) -> "Tomorrow"
+                else -> formatLongDate(d)
+            }
+            add(HomeSection("d-$d", title, byDay[d].orEmpty().map(card)))
+        }
+        add(HomeSection("later", "Later", later.map(card)))
+    }
 }

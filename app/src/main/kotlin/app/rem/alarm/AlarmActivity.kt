@@ -53,7 +53,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.Role
@@ -67,17 +66,10 @@ import app.rem.core.model.Reminder
 import app.rem.core.scheduling.SnoozePreset
 import app.rem.ui.components.color
 import app.rem.ui.components.icon
-import app.rem.ui.format.describeDue
 import app.rem.ui.format.formatLongDate
 import app.rem.ui.format.formatTime
-import app.rem.ui.theme.Rem
-import app.rem.ui.motion.AuroraBackground
 import app.rem.ui.motion.LocalAmbientMotion
-import app.rem.ui.motion.floating
 import app.rem.ui.motion.pressScale
-import app.rem.ui.motion.ringing
-import app.rem.ui.motion.shimmer
-import app.rem.ui.motion.staggeredEntrance
 import app.rem.ui.theme.RemTheme
 import kotlinx.coroutines.launch
 import java.time.LocalDateTime
@@ -180,78 +172,61 @@ fun AlarmContent(
     animate: Boolean = true,
 ) {
     val accent = reminder.category.color
-    val t = if (animate && LocalAmbientMotion.current) {
-        val wave by rememberInfiniteTransition(label = "pulse").animateFloat(0f, 1f, infiniteRepeatable(tween(1800, easing = LinearEasing), RepeatMode.Restart), label = "wave")
-        wave
-    } else 0.45f
-
-    val seen = androidx.compose.runtime.remember { mutableSetOf<Any>() }
-    Box(Modifier.fillMaxSize()) {
-        AuroraBackground(
-            base = Rem.extras.alarmGradient,
-            blobs = listOf(accent.copy(alpha = 0.8f), Color(0xFFA855F7), Color(0xFF38BDF8).copy(alpha = 0.6f)),
-            speedMs = 9000,
+    // One gentle breathing ring around the glyph; nothing else moves.
+    val breathe = if (animate && LocalAmbientMotion.current) {
+        val v by rememberInfiniteTransition(label = "breathe").animateFloat(
+            0f, 1f, infiniteRepeatable(tween(1600, easing = LinearEasing), RepeatMode.Reverse), label = "b",
         )
+        v
+    } else 0.5f
+
+    Box(Modifier.fillMaxSize().background(Color.Black)) {
         Column(
             Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(horizontal = 24.dp, vertical = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Spacer(Modifier.height(24.dp))
-            Column(Modifier.staggeredEntrance("clock", 0, seen), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(formatTime(now.toLocalTime()), color = Color.White, fontSize = 64.sp, fontWeight = FontWeight.Light, letterSpacing = (-2).sp)
-                Text(formatLongDate(now.toLocalDate()), color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.titleMedium)
-            }
+            Spacer(Modifier.height(40.dp))
+            Text(formatLongDate(now.toLocalDate()), color = Color.White.copy(alpha = 0.6f), style = MaterialTheme.typography.titleMedium)
+            Text(formatTime(now.toLocalTime()), color = Color.White, fontSize = 76.sp, fontWeight = FontWeight.Thin, letterSpacing = (-2).sp)
 
             Spacer(Modifier.weight(1f))
-            Box(Modifier.size(260.dp).staggeredEntrance("art", 1, seen), contentAlignment = Alignment.Center) {
-                listOf(0f, 0.33f, 0.66f).forEach { phase ->
-                    val p = (t + phase) % 1f
-                    Box(
-                        Modifier.size(260.dp).scale(0.45f + p * 0.55f).graphicsLayer { alpha = (1f - p) * 0.35f }
-                            .clip(CircleShape).background(accent),
-                    )
-                }
+            Box(Modifier.size(132.dp), contentAlignment = Alignment.Center) {
                 Box(
-                    Modifier.size(120.dp).shadow(30.dp, CircleShape, ambientColor = accent, spotColor = accent).clip(CircleShape).background(Color.White),
-                    contentAlignment = Alignment.Center,
-                ) { Icon(reminder.category.icon, null, tint = accent, modifier = Modifier.size(56.dp).ringing(1400, 18f)) }
+                    Modifier.size(132.dp).scale(0.82f + 0.18f * breathe).graphicsLayer { alpha = 0.25f * (1f - breathe) + 0.1f }
+                        .clip(CircleShape).background(accent),
+                )
+                Box(Modifier.size(84.dp).clip(CircleShape).background(accent), contentAlignment = Alignment.Center) {
+                    Icon(reminder.category.icon, null, tint = Color.White, modifier = Modifier.size(42.dp))
+                }
             }
             Spacer(Modifier.height(28.dp))
-            Column(Modifier.staggeredEntrance("title", 2, seen), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(reminder.category.label.uppercase(), color = Color.White.copy(alpha = 0.7f), style = app.rem.ui.theme.SectionLabel)
-                Spacer(Modifier.height(8.dp))
-                Text(reminder.title, color = Color.White, style = MaterialTheme.typography.headlineLarge, textAlign = TextAlign.Center)
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    listOfNotNull(describeDue(reminder.dueAt, now.toLocalDate()), reminder.amount).joinToString(" · "),
-                    color = Color.White.copy(alpha = 0.75f),
-                    style = MaterialTheme.typography.bodyLarge,
-                )
-            }
+            Text(reminder.title, color = Color.White, style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center)
+            Spacer(Modifier.height(6.dp))
+            Text(
+                listOfNotNull(reminder.category.label, reminder.amount).joinToString(" \u00B7 "),
+                color = Color.White.copy(alpha = 0.55f),
+                style = MaterialTheme.typography.bodyLarge,
+            )
             Spacer(Modifier.weight(1f))
 
             val doneInteraction = androidx.compose.runtime.remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
             Row(
                 Modifier
-                    .staggeredEntrance("done", 3, seen)
-                    .pressScale(doneInteraction, 0.95f)
-                    .floating(2f, 1800)
+                    .pressScale(doneInteraction)
                     .fillMaxWidth()
-                    .height(68.dp)
-                    .shadow(24.dp, RoundedCornerShape(34.dp), ambientColor = accent, spotColor = accent)
-                    .clip(RoundedCornerShape(34.dp))
+                    .height(58.dp)
+                    .clip(RoundedCornerShape(16.dp))
                     .background(Color.White)
-                    .shimmer(2200)
                     .clickable(doneInteraction, androidx.compose.material3.ripple(), role = Role.Button, onClickLabel = "Mark done", onClick = onDone),
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(Icons.Rounded.Check, null, tint = accent, modifier = Modifier.size(28.dp))
-                Spacer(Modifier.width(10.dp))
-                Text("Done", color = Color(0xFF14141F), style = MaterialTheme.typography.titleLarge)
+                Icon(Icons.Rounded.Check, null, tint = Color.Black, modifier = Modifier.size(22.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("Done", color = Color.Black, style = MaterialTheme.typography.titleMedium)
             }
-            Spacer(Modifier.height(14.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth().staggeredEntrance("snooze", 4, seen)) {
+            Spacer(Modifier.height(10.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
                 listOf(SnoozePreset.MIN_5, SnoozePreset.MIN_15, SnoozePreset.HOUR_1).forEach { p ->
                     Text(
                         p.label,
@@ -260,16 +235,15 @@ fun AlarmContent(
                         textAlign = TextAlign.Center,
                         modifier = Modifier
                             .weight(1f)
-                            .clip(RoundedCornerShape(20.dp))
-                            .background(Color.White.copy(alpha = 0.14f))
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(Color(0xFF1C1C1E))
                             .clickable(role = Role.Button) { onSnooze(p) }
-                            .padding(vertical = 16.dp),
+                            .padding(vertical = 15.dp),
                     )
                 }
             }
             Spacer(Modifier.height(6.dp))
-            TextButton(onClick = onDismiss) { Text("Dismiss for now", color = Color.White.copy(alpha = 0.7f)) }
+            TextButton(onClick = onDismiss) { Text("Dismiss", color = Color.White.copy(alpha = 0.55f)) }
         }
     }
 }
-

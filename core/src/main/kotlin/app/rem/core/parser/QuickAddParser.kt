@@ -59,7 +59,9 @@ class QuickAddParser(private val clock: Clock) {
     private val reAdverbRepeat = Regex("""\b(daily|weekly|monthly|yearly|annually)\b""")
     private val reRemindPrefix = Regex("""^\s*(?:remind\s+me\s+(?:to|about|that)\s+|remember\s+to\s+|don'?t\s+forget\s+to\s+)""")
 
-    fun parse(text: String): ParsedReminder {
+    fun parse(input: String): ParsedReminder {
+        // Speech often ends with a full stop; drop it (but keep "!" priority markers).
+        val text = SpokenNormalizer.normalize(input.trim().trimEnd('.', '?', ' '))
         val lower = text.lowercase()
         val consumed = BooleanArray(text.length)
         val spans = mutableListOf<IntRange>()
@@ -193,8 +195,17 @@ class QuickAddParser(private val clock: Clock) {
             if (m.groupValues[3].startsWith("p")) h += 12
             time = LocalTime.of(h.coerceIn(0, 23), m.groupValues[2].ifEmpty { "0" }.toInt().coerceIn(0, 59))
         }
-        if (time == null) take(re24hTime)?.let { m -> time = LocalTime.of(m.groupValues[1].toInt(), m.groupValues[2].toInt()) }
+        var ambiguousHour = false
+        if (time == null) take(re24hTime)?.let { m ->
+            val raw = m.groupValues[1]
+            var h = raw.toInt()
+            // "at 5:30" (no leading zero, no am/pm) almost always means the afternoon/evening.
+            if (raw.length == 1 && h in 1..6) h += 12
+            ambiguousHour = raw.length == 1
+            time = LocalTime.of(h, m.groupValues[2].toInt())
+        }
         if (time == null) take(reBareAt)?.let { m ->
+            ambiguousHour = true
             val h = m.groupValues[1].toInt()
             // "at 5" -> 17:00, "at 9" -> 09:00, "at 12" -> noon.
             time = when (h) {
@@ -204,7 +215,19 @@ class QuickAddParser(private val clock: Clock) {
                 else -> LocalTime.MIDNIGHT
             }
         }
-        if (time == null) take(rePartOfDay)?.let { m -> time = DateVocabulary.PARTS_OF_DAY[m.groupValues[1]] }
+        if (time == null) {
+            take(rePartOfDay)?.let { m -> time = DateVocabulary.PARTS_OF_DAY[m.groupValues[1]] }
+        } else {
+            // "at 6 in the evening", "at 9 tomorrow morning": the part of day settles am/pm.
+            take(rePartOfDay)?.let { m ->
+                val t = time!!
+                time = when (m.groupValues[1]) {
+                    "morning" -> if (t.hour >= 12 && ambiguousHour) t.minusHours(12) else t
+                    "afternoon", "evening", "tonight", "night" -> if (t.hour < 12) t.plusHours(12) else t
+                    else -> t
+                }
+            }
+        }
         if (time == null) time = impliedTime ?: recurrencePartOfDay
 
         // Combine
@@ -242,6 +265,9 @@ class QuickAddParser(private val clock: Clock) {
             t = stripped
         }
         t = t.trim(',', ' ', '-')
+        // "remind me at 5pm to call mom" leaves "to call mom".
+        t = t.replace(Regex("""^(?i)(?:remind\s+me\s+)?(?:to|that|about|i\s+need\s+to|i\s+have\s+to|i\s+should)\s+"""), "").trim()
+        t = t.replace(Regex("""^(?i)remind\s+me\s*"""), "").trim()
         return t.ifEmpty { original.trim() }
     }
 

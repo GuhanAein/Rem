@@ -14,32 +14,34 @@
 - **Home dashboard:** today's progress ring, Overdue/Today/Upcoming counts, a two-week day strip, category filters, and Overdue, Today, Tomorrow, This week, Later and Someday sections.
 - **Reliability:** exact alarms, rescheduling after reboot, clock or time-zone changes, a permission setup wizard, and battery-saver tips for each phone brand (Xiaomi, Samsung, OnePlus and others).
 - **Share to Rem:** share any text from another app to create a reminder.
-- Light and dark themes, Material 3, edge-to-edge.
+- **Voice input** that understands spoken times, plus **home-screen widgets** and launcher shortcuts.
+- Light and dark themes, edge-to-edge.
 
-## Motion
-![Rem showreel](docs/motion/showreel.gif)
+## Design
+Clean and minimal: one accent colour, white grouped cards on a soft grey canvas, large bold titles, hairline separators and quiet motion. Colour appears only where it carries meaning: overdue in red, small category glyphs, and done in green. Light and dark themes are included.
 
-([Full-quality video](docs/motion/showreel.mp4). These are real frames rendered from the app's Compose code, not mock-ups.)
+![Rem in motion](docs/motion/showreel.gif)
 
-- **Living hero:** an aurora gradient drifts behind the dashboard. It parallaxes and fades as you scroll, and a slim bar slides down in its place.
-- **Choreographed entrances:** sections and cards rise in one after another on spring physics.
-- **Satisfying completion:** the circle fills, the check mark draws itself, the title gets struck through, confetti bursts, and the list closes the gap with a spring. Finishing everything for today triggers a full-screen celebration.
-- **Rolling counters** for every number, a progress ring that sweeps, and an alarm icon that rings on alarm-style cards.
-- **Swipe feedback:** the colour deepens and the icon grows as you pull, with a "Done!" label when the swipe is far enough to count.
-- **Quick add:** the placeholder types out example sentences, and date, repeat, priority and category chips pop in as Rem understands you.
-- **Card to editor:** a shared-element container transform; the category bubble flies into place.
-- **Onboarding:** category bubbles orbit a ringing bell, alarm ripples pulse, a demo types itself, and pages slide with parallax.
-- **Alarm screen:** a pulsing aurora, a shaking icon, and a glowing, floating Done button.
-- Every tap gives press-scale feedback. All looping motion turns off when Android's "Remove animations" setting is on.
-
-## Screenshots
-| Home | Dark | Quick add | Edit |
+| Today | Dark | Scheduled | Empty |
 |---|---|---|---|
-| ![](docs/screenshots/home_light.png) | ![](docs/screenshots/home_dark.png) | ![](docs/screenshots/quick_add.png) | ![](docs/screenshots/edit.png) |
+| ![](docs/screenshots/home_light.png) | ![](docs/screenshots/home_dark.png) | ![](docs/screenshots/home_scheduled.png) | ![](docs/screenshots/home_empty.png) |
 
-| Alarm | Onboarding | Type it | Setup |
+| Voice: listening | Voice: understood | Quick add | Details |
+|---|---|---|---|
+| ![](docs/screenshots/voice_listening.png) | ![](docs/screenshots/voice_done.png) | ![](docs/screenshots/quick_add.png) | ![](docs/screenshots/edit.png) |
+
+| Alarm | Onboarding | Just say it | Setup |
 |---|---|---|---|
 | ![](docs/screenshots/alarm.png) | ![](docs/screenshots/onboarding_1.png) | ![](docs/screenshots/onboarding_3.png) | ![](docs/screenshots/setup.png) |
+
+## Voice
+Tap the mic (in the app, the widget, or by long-pressing the app icon) and say it naturally:
+"Remind me to call mom tomorrow at 6 pm", "Take my vitamins every day at 8 in the morning", "Pay rent on the first of every month", "Leave for the station at quarter to seven".
+The words appear live and Rem shows what it understood (day, time, repeat, category) before you add it. Speech-to-text uses the phone's built-in recogniser, preferring on-device recognition. The understanding is Rem's own rule-based parser, so no AI API is involved.
+
+## Widgets
+- **Today** (resizable): today's count, overdue and upcoming reminders, a tick circle to complete one, and buttons to add or say a new reminder.
+- **Quick Add** (2×1): a "New" button and a mic.
 
 ## Build
 Requirements: JDK 17+ and the Android SDK (platform 35).
@@ -65,7 +67,9 @@ app/   Android
   data/         Room database, repository, ReminderService (one place that changes data and alarms together)
   alarm/        AlarmScheduler (exact / alarm-clock / inexact fallback), receivers, Notifier, full-screen AlarmActivity
   ui/           Jetpack Compose: home, quick add, edit, onboarding and setup, theme
-  ui/motion/    Motion toolkit: springs, stagger, aurora, confetti, shimmer, counters, shared elements
+  ui/voice/     SpeechController (Android SpeechRecognizer) + voice sheet
+  ui/motion/    Quiet motion: press feedback, gentle entrances, rolling counters, shared elements
+  widget/       Jetpack Glance widgets (Today, Quick Add)
 ```
 
 ## Docs

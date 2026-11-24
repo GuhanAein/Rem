@@ -1,34 +1,19 @@
 package app.rem.ui.add
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
-import androidx.compose.animation.togetherWith
-import androidx.compose.ui.graphics.graphicsLayer
-import app.rem.ui.motion.LocalAmbientMotion
-import kotlinx.coroutines.delay
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -38,28 +23,23 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Alarm
-import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.Flag
+import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.Repeat
-import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -74,11 +54,9 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.rem.core.model.AlertStyle
 import app.rem.core.model.Category
@@ -88,18 +66,18 @@ import app.rem.core.parser.ParsedReminder
 import app.rem.core.parser.QuickAddParser
 import app.rem.core.recurrence.RecurrenceRule
 import app.rem.core.recurrence.describe
-import app.rem.ui.components.CategoryBubble
-import app.rem.ui.components.GradientButton
-import app.rem.ui.components.color
-import app.rem.ui.components.icon
+import app.rem.ui.components.CategoryGlyph
+import app.rem.ui.components.OptionSheet
+import app.rem.ui.components.Token
 import app.rem.ui.components.label
 import app.rem.ui.format.describeDue
+import app.rem.ui.theme.Rem
 import java.time.Clock
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.temporal.TemporalAdjusters
 
-/** Turns what the user typed (plus their overrides) into a reminder with smart category defaults. */
+/** Turns what the user typed or said (plus overrides) into a reminder with smart category defaults. */
 fun buildQuickReminder(
     parsed: ParsedReminder,
     category: Category,
@@ -121,13 +99,12 @@ fun buildQuickReminder(
     )
 }
 
-private enum class QuickPick(val label: String) { HOUR("In 1 hour"), EVENING("This evening"), TOMORROW("Tomorrow 9 AM"), WEEKEND("Weekend"), NEXT_WEEK("Next week") }
+enum class QuickPick(val label: String) { HOUR("In 1 hour"), EVENING("This evening"), TOMORROW("Tomorrow"), NEXT_WEEK("Next week") }
 
-private fun QuickPick.resolve(now: LocalDateTime): LocalDateTime = when (this) {
+fun QuickPick.resolve(now: LocalDateTime): LocalDateTime = when (this) {
     QuickPick.HOUR -> now.plusHours(1).withSecond(0).withNano(0)
     QuickPick.EVENING -> now.toLocalDate().atTime(18, 0).let { if (it.isAfter(now)) it else it.plusDays(1) }
     QuickPick.TOMORROW -> now.toLocalDate().plusDays(1).atTime(9, 0)
-    QuickPick.WEEKEND -> now.toLocalDate().with(TemporalAdjusters.next(java.time.DayOfWeek.SATURDAY)).atTime(10, 0)
     QuickPick.NEXT_WEEK -> now.toLocalDate().with(TemporalAdjusters.next(java.time.DayOfWeek.MONDAY)).atTime(9, 0)
 }
 
@@ -138,6 +115,7 @@ fun QuickAddSheet(
     onDismiss: () -> Unit,
     onSave: (Reminder) -> Unit,
     onMoreOptions: (String) -> Unit,
+    onVoice: () -> Unit = {},
     clock: Clock = Clock.systemDefaultZone(),
 ) {
     val parser = remember(clock) { QuickAddParser(clock) }
@@ -154,7 +132,7 @@ fun QuickAddSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = MaterialTheme.colorScheme.surface,
+        containerColor = Rem.colors.card,
     ) {
         QuickAddContent(
             text = text,
@@ -166,10 +144,9 @@ fun QuickAddSheet(
             onCategory = { categoryOverride = it; alarmOverride = null },
             onQuickPick = { dueOverride = it },
             onAlarm = { alarmOverride = it },
-            onSave = {
-                if (text.isNotBlank()) onSave(buildQuickReminder(parsed, category, due, alarm, clock.instant()))
-            },
+            onSave = { if (text.isNotBlank()) onSave(buildQuickReminder(parsed, category, due, alarm, clock.instant())) },
             onMoreOptions = { onMoreOptions(text) },
+            onVoice = onVoice,
             now = LocalDateTime.now(clock),
             autoFocus = true,
         )
@@ -191,198 +168,97 @@ fun QuickAddContent(
     onSave: () -> Unit,
     onMoreOptions: () -> Unit,
     now: LocalDateTime,
+    onVoice: () -> Unit = {},
     autoFocus: Boolean = false,
 ) {
+    val c = Rem.colors
     val focus = remember { FocusRequester() }
     if (autoFocus) LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
     val hasText = text.isNotBlank()
+    var pickCategory by remember { mutableStateOf(false) }
 
-    Column(
-        Modifier
-            .fillMaxWidth()
-            .navigationBarsPadding()
-            .imePadding()
-            .padding(bottom = 16.dp)
-            .animateContentSize(),
-    ) {
-        Row(Modifier.padding(horizontal = 24.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Rounded.AutoAwesome, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
-            Spacer(Modifier.width(6.dp))
-            Text("Type it the way you'd say it", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+    Column(Modifier.fillMaxWidth().navigationBarsPadding().imePadding().padding(horizontal = 20.dp).padding(bottom = 12.dp).animateContentSize()) {
+        Row(verticalAlignment = Alignment.Top) {
+            CategoryGlyph(category, Modifier.padding(top = 2.dp).clip(CircleShape).clickable { pickCategory = true }, size = 28.dp)
+            Spacer(Modifier.width(12.dp))
+            Box(Modifier.weight(1f).padding(top = 2.dp)) {
+                if (text.isEmpty()) Text("New Reminder", style = MaterialTheme.typography.titleLarge, color = c.tertiaryLabel)
+                BasicTextField(
+                    value = text,
+                    onValueChange = onTextChange,
+                    textStyle = MaterialTheme.typography.titleLarge.copy(color = c.label),
+                    cursorBrush = SolidColor(c.accent),
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences, imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(onDone = { onSave() }),
+                    modifier = Modifier.fillMaxWidth().focusRequester(focus),
+                )
+            }
         }
-        Spacer(Modifier.height(12.dp))
-        Box(Modifier.padding(horizontal = 24.dp)) {
-            if (text.isEmpty()) TypewriterPlaceholder()
-            BasicTextField(
-                value = text,
-                onValueChange = onTextChange,
-                textStyle = MaterialTheme.typography.headlineSmall.copy(color = MaterialTheme.colorScheme.onSurface),
-                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences, imeAction = ImeAction.Done),
-                keyboardActions = KeyboardActions(onDone = { onSave() }),
-                modifier = Modifier.fillMaxWidth().focusRequester(focus),
+        if (text.isEmpty()) {
+            Text(
+                "Try “Pay rent every 1st at 9am”",
+                style = MaterialTheme.typography.bodyMedium, color = c.secondaryLabel,
+                modifier = Modifier.padding(start = 40.dp, top = 4.dp),
             )
         }
 
-        Spacer(Modifier.height(16.dp))
-        // Live understanding of the sentence.
-        FlowRow(
-            Modifier.padding(horizontal = 20.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            PreviewChip(Icons.Rounded.CalendarMonth, describeDue(due, now.toLocalDate()), MaterialTheme.colorScheme.primary, active = due != null)
+        Spacer(Modifier.height(14.dp))
+        FlowRow(Modifier.padding(start = 40.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Fade(due != null) { Token(describeDue(due, now.toLocalDate()), Icons.Rounded.CalendarMonth, tint = c.accent) }
             val repeat = parsed.recurrence ?: RecurrenceRule.parseOrNull(category.defaultRecurrence?.takeIf { due != null })
-            PopIn(repeat != null) { PreviewChip(Icons.Rounded.Repeat, repeat?.describe() ?: "", Color(0xFF06B6D4), active = true) }
-            PopIn(parsed.priority != Priority.NONE) {
-                PreviewChip(Icons.Rounded.Flag, "${parsed.priority.label} priority", Color(0xFFEF4444), active = true)
-            }
-            PopIn(category != Category.TASK && hasText) { PreviewChip(category.icon, category.label, category.color, active = true) }
-            PopIn(alarm) { PreviewChip(Icons.Rounded.Alarm, "Rings until done", category.color, active = true) }
+            Fade(repeat != null) { Token(repeat?.describe().orEmpty(), Icons.Rounded.Repeat) }
+            Fade(parsed.priority == Priority.HIGH) { Token(parsed.priority.label, Icons.Rounded.Flag, tint = c.warning) }
+            Fade(hasText) { Token(category.label, null, onClick = { pickCategory = true }) }
+            Fade(hasText) { Token(if (alarm) "Alarm" else "Notification", Icons.Rounded.Alarm, tint = if (alarm) c.accent else c.secondaryLabel, onClick = { onAlarm(!alarm) }) }
         }
-
-        AnimatedVisibility(visible = due == null && hasText, enter = fadeIn(), exit = fadeOut()) {
-            LazyRow(contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(QuickPick.entries) { pick ->
+        AnimatedVisibility(due == null && hasText, enter = fadeIn(tween(150)), exit = fadeOut(tween(150))) {
+            Row(Modifier.padding(start = 40.dp, top = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                QuickPick.entries.forEach { pick ->
                     Text(
                         pick.label,
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(50))
-                            .background(MaterialTheme.colorScheme.primaryContainer)
-                            .clickable(role = Role.Button) { onQuickPick(pick.resolve(now)) }
-                            .padding(horizontal = 14.dp, vertical = 8.dp),
+                        style = MaterialTheme.typography.labelMedium, color = c.accent,
+                        modifier = Modifier.clip(androidx.compose.foundation.shape.RoundedCornerShape(8.dp))
+                            .background(c.fill).clickable(role = Role.Button) { onQuickPick(pick.resolve(now)) }
+                            .padding(horizontal = 9.dp, vertical = 6.dp),
                     )
                 }
             }
-        }
-
-        Spacer(Modifier.height(14.dp))
-        Text(
-            "CATEGORY",
-            style = app.rem.ui.theme.SectionLabel,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = 24.dp),
-        )
-        Spacer(Modifier.height(10.dp))
-        LazyRow(contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            items(Category.entries) { cat ->
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.clip(RoundedCornerShape(14.dp)).clickable(role = Role.RadioButton) { onCategory(cat) }.padding(4.dp),
-                ) {
-                    CategoryBubble(cat, size = 48.dp, selected = cat == category)
-                    Spacer(Modifier.height(6.dp))
-                    Text(
-                        cat.label,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = if (cat == category) cat.color else MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-            }
-        }
-
-        Spacer(Modifier.height(14.dp))
-        Row(
-            Modifier
-                .padding(horizontal = 20.dp)
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(18.dp))
-                .background(MaterialTheme.colorScheme.surfaceContainer)
-                .padding(horizontal = 16.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(Icons.Rounded.Alarm, null, tint = if (alarm) category.color else MaterialTheme.colorScheme.onSurfaceVariant)
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
-                Text("Ring like an alarm", style = MaterialTheme.typography.titleSmall)
-                Text("Full screen, keeps reminding until you act", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            Switch(
-                checked = alarm,
-                onCheckedChange = onAlarm,
-                colors = SwitchDefaults.colors(checkedTrackColor = category.color),
-            )
         }
 
         Spacer(Modifier.height(18.dp))
-        Row(Modifier.padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
-            TextButton(onClick = onMoreOptions) {
-                Icon(Icons.Rounded.Tune, null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(6.dp))
-                Text("More options")
-            }
+        Box(Modifier.fillMaxWidth().height(0.5.dp).background(c.separator))
+        Row(Modifier.fillMaxWidth().padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+            IconAction(Icons.Rounded.Mic, "Speak instead", onVoice)
+            IconAction(Icons.Rounded.Tune, "Details", onMoreOptions)
             Spacer(Modifier.weight(1f))
-            GradientButton("Save", onClick = onSave, enabled = hasText, icon = Icons.AutoMirrored.Rounded.Send, height = 52.dp)
+            Box(
+                Modifier.size(36.dp).clip(CircleShape).background(if (hasText) c.accent else c.fill)
+                    .clickable(enabled = hasText, role = Role.Button, onClickLabel = "Add", onClick = onSave),
+                contentAlignment = Alignment.Center,
+            ) { Icon(Icons.Rounded.ArrowUpward, "Add", tint = if (hasText) Color.White else c.tertiaryLabel, modifier = Modifier.size(20.dp)) }
         }
     }
-}
 
-@Composable
-private fun PreviewChip(icon: ImageVector, text: String, tint: Color, active: Boolean) {
-    Row(
-        Modifier
-            .animateContentSize(spring(dampingRatio = 0.8f, stiffness = Spring.StiffnessMediumLow))
-            .clip(RoundedCornerShape(12.dp))
-            .background(if (active) tint.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surfaceContainer)
-            .border(1.dp, if (active) tint.copy(alpha = 0.25f) else Color.Transparent, RoundedCornerShape(12.dp))
-            .padding(horizontal = 10.dp, vertical = 7.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(icon, null, tint = if (active) tint else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
-        Spacer(Modifier.width(6.dp))
-        AnimatedContent(
-            targetState = text,
-            transitionSpec = { (slideInVertically { it } + fadeIn()) togetherWith (slideOutVertically { -it } + fadeOut()) },
-            label = "chipText",
-        ) { t -> Text(t, style = MaterialTheme.typography.labelLarge, color = if (active) tint else MaterialTheme.colorScheme.onSurfaceVariant) }
+    if (pickCategory) {
+        OptionSheet(
+            title = "Category",
+            options = Category.entries.map { it to it.label },
+            isSelected = { it == category },
+            onSelect = { onCategory(it); pickCategory = false },
+            onDismiss = { pickCategory = false },
+            icons = { cat -> { CategoryGlyph(cat) } },
+        )
     }
 }
 
 @Composable
-private fun PopIn(visible: Boolean, content: @Composable () -> Unit) {
-    AnimatedVisibility(
-        visible = visible,
-        enter = scaleIn(spring(dampingRatio = 0.45f, stiffness = Spring.StiffnessMedium), initialScale = 0.4f) + fadeIn(),
-        exit = scaleOut(targetScale = 0.6f) + fadeOut(),
-    ) { content() }
+private fun IconAction(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit) {
+    Box(Modifier.size(40.dp).clip(CircleShape).clickable(role = Role.Button, onClickLabel = label, onClick = onClick), contentAlignment = Alignment.Center) {
+        Icon(icon, label, tint = Rem.colors.accent, modifier = Modifier.size(22.dp))
+    }
 }
 
-private val PLACEHOLDERS = listOf(
-    "Call mom tomorrow at 6pm",
-    "Take vitamins every day 8am",
-    "Pay rent every 1st !1",
-    "Renew passport on 5 Dec",
-    "Gym every mon wed fri 7am",
-)
-
-/** Types out example sentences, pauses, erases, and moves on: shows what Rem can understand. */
 @Composable
-private fun TypewriterPlaceholder() {
-    val ambient = LocalAmbientMotion.current
-    var shown by remember { mutableStateOf(if (ambient) "" else PLACEHOLDERS[0]) }
-    if (ambient) {
-        LaunchedEffect(Unit) {
-            var i = 0
-            while (true) {
-                val target = PLACEHOLDERS[i % PLACEHOLDERS.size]
-                for (n in 1..target.length) { shown = target.take(n); delay(45) }
-                delay(1600)
-                for (n in target.length downTo 0) { shown = target.take(n); delay(18) }
-                delay(250)
-                i++
-            }
-        }
-    }
-    val caret = if (ambient) {
-        val c by rememberInfiniteTransition(label = "caret").animateFloat(1f, 0f, infiniteRepeatable(tween(530), RepeatMode.Reverse), label = "c")
-        c
-    } else 1f
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(shown, style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
-        Box(Modifier.padding(start = 2.dp).width(2.dp).height(26.dp).graphicsLayer { alpha = if (ambient) caret else 1f }.background(MaterialTheme.colorScheme.primary))
-    }
+private fun Fade(visible: Boolean, content: @Composable () -> Unit) {
+    AnimatedVisibility(visible, enter = fadeIn(tween(180)) + scaleIn(tween(180), initialScale = 0.9f), exit = fadeOut(tween(120)) + scaleOut(targetScale = 0.9f)) { content() }
 }

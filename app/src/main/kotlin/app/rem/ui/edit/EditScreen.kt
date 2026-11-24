@@ -1,58 +1,44 @@
 package app.rem.ui.edit
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.foundation.BorderStroke
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.automirrored.rounded.Notes
-import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Alarm
-import androidx.compose.material.icons.rounded.Category
-import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.DeleteOutline
-import androidx.compose.material.icons.rounded.EventAvailable
+import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.Flag
-import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.rounded.Notifications
+import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.rounded.Payments
-import androidx.compose.material.icons.rounded.Remove
 import androidx.compose.material.icons.rounded.Repeat
 import androidx.compose.material.icons.rounded.Schedule
-import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimePicker
@@ -68,11 +54,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
-import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.rem.core.model.AlertStyle
@@ -80,27 +66,18 @@ import app.rem.core.model.Category
 import app.rem.core.model.Priority
 import app.rem.core.recurrence.Freq
 import app.rem.core.recurrence.describe
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
-import androidx.compose.animation.togetherWith
-import app.rem.ui.motion.sharedBounds
-import app.rem.ui.motion.sharedElement
-import app.rem.ui.motion.staggeredEntrance
-import app.rem.ui.components.CategoryBubble
-import app.rem.ui.components.GradientButton
-import app.rem.ui.components.SectionCard
-import app.rem.ui.components.SelectPill
-import app.rem.ui.components.color
-import app.rem.ui.components.icon
-import app.rem.ui.components.label
+import app.rem.ui.components.CategoryGlyph
+import app.rem.ui.components.GroupedCard
+import app.rem.ui.components.OptionSheet
+import app.rem.ui.components.RowDivider
+import app.rem.ui.components.SegmentedControl
+import app.rem.ui.components.SettingRow
+import app.rem.ui.components.SwitchRow
 import app.rem.ui.format.describeOffset
 import app.rem.ui.format.formatDay
 import app.rem.ui.format.formatTime
+import app.rem.ui.motion.sharedBounds
+import app.rem.ui.theme.Rem
 import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
@@ -123,7 +100,35 @@ fun EditScreen(viewModel: EditViewModel, onBack: () -> Unit) {
 private val ALERT_CHOICES = listOf(0, 5, 15, 30, 60, 1440, 3 * 1440, 7 * 1440, 30 * 1440)
 private val NAG_CHOICES = listOf<Int?>(null, 1, 5, 10, 15, 30)
 
-@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
+private enum class RepeatPreset(val label: String) {
+    NEVER("Never"), DAILY("Every Day"), WEEKDAYS("Weekdays"), WEEKLY("Every Week"), BIWEEKLY("Every 2 Weeks"),
+    MONTHLY("Every Month"), MONTH_END("Last Day of Month"), YEARLY("Every Year"),
+}
+
+private fun RepeatForm.preset(): RepeatPreset? = when {
+    freq == null -> RepeatPreset.NEVER
+    freq == Freq.DAILY && interval == 1 -> RepeatPreset.DAILY
+    freq == Freq.WEEKLY && interval == 1 && weekdays == setOf(DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY, DayOfWeek.THURSDAY, DayOfWeek.FRIDAY) -> RepeatPreset.WEEKDAYS
+    freq == Freq.WEEKLY && interval == 1 && weekdays.size <= 1 -> RepeatPreset.WEEKLY
+    freq == Freq.WEEKLY && interval == 2 && weekdays.size <= 1 -> RepeatPreset.BIWEEKLY
+    freq == Freq.MONTHLY && interval == 1 && lastDayOfMonth -> RepeatPreset.MONTH_END
+    freq == Freq.MONTHLY && interval == 1 -> RepeatPreset.MONTHLY
+    freq == Freq.YEARLY && interval == 1 -> RepeatPreset.YEARLY
+    else -> null
+}
+
+private fun RepeatPreset.toForm(anchor: LocalDate): RepeatForm = when (this) {
+    RepeatPreset.NEVER -> RepeatForm()
+    RepeatPreset.DAILY -> RepeatForm(Freq.DAILY)
+    RepeatPreset.WEEKDAYS -> RepeatForm(Freq.WEEKLY, weekdays = setOf(DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY, DayOfWeek.THURSDAY, DayOfWeek.FRIDAY))
+    RepeatPreset.WEEKLY -> RepeatForm(Freq.WEEKLY, weekdays = setOf(anchor.dayOfWeek))
+    RepeatPreset.BIWEEKLY -> RepeatForm(Freq.WEEKLY, 2, setOf(anchor.dayOfWeek))
+    RepeatPreset.MONTHLY -> RepeatForm(Freq.MONTHLY)
+    RepeatPreset.MONTH_END -> RepeatForm(Freq.MONTHLY, lastDayOfMonth = true)
+    RepeatPreset.YEARLY -> RepeatForm(Freq.YEARLY)
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EditContent(
     state: EditUiState,
@@ -134,224 +139,182 @@ fun EditContent(
     onDelete: () -> Unit = {},
     today: LocalDate = LocalDate.now(),
 ) {
+    val c = Rem.colors
     var showDate by remember { mutableStateOf(false) }
     var showTime by remember { mutableStateOf(false) }
+    var sheet by remember { mutableStateOf<String?>(null) }
     var confirmDelete by remember { mutableStateOf(false) }
-    val accent = state.category.color
+    var showAmount by remember { mutableStateOf(false) }
     val sharedId = state.original?.id
-    val seen = remember { mutableSetOf<Any>() }
-    val animatedAccent by animateColorAsState(accent, tween(450), label = "accent")
 
-    Box(
-        Modifier
-            .fillMaxSize()
+    Column(
+        Modifier.fillMaxSize()
             .then(if (sharedId != null) Modifier.sharedBounds("card-$sharedId") else Modifier)
-            .background(MaterialTheme.colorScheme.background),
+            .background(c.canvas),
     ) {
-        // A soft wash of the category colour that shifts when you change category.
-        Box(
-            Modifier.fillMaxWidth().height(260.dp)
-                .background(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(animatedAccent.copy(alpha = 0.16f), Color.Transparent))),
-        )
+        // Navigation bar: Cancel · Details · Done
+        Row(Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 8.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+            TextButton(onClick = onBack) { Text("Cancel", style = MaterialTheme.typography.bodyLarge, color = c.accent) }
+            Text(if (state.isNew) "New Reminder" else "Details", style = MaterialTheme.typography.titleMedium, color = c.label, textAlign = TextAlign.Center, modifier = Modifier.weight(1f))
+            TextButton(onClick = onSave, enabled = state.canSave) {
+                Text(if (state.isNew) "Add" else "Done", style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold), color = if (state.canSave) c.accent else c.tertiaryLabel)
+            }
+        }
+
         LazyColumn(
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 120.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 40.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp),
             modifier = Modifier.fillMaxSize().imePadding(),
         ) {
             item {
-                Row(Modifier.fillMaxWidth().padding(top = 36.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                    RoundIcon(Icons.AutoMirrored.Rounded.ArrowBack, "Back", onBack)
-                    Spacer(Modifier.width(12.dp))
-                    Text(if (state.isNew) "New reminder" else "Edit reminder", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
-                    if (!state.isNew) RoundIcon(Icons.Rounded.DeleteOutline, "Delete") { confirmDelete = true }
-                }
-            }
-
-            // Title + notes
-            item {
-                Surface(
-                    shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.surface,
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                    modifier = Modifier.staggeredEntrance("title", 0, seen),
-                ) {
-                    Row(Modifier.padding(18.dp)) {
-                        AnimatedContent(
-                            targetState = state.category,
-                            transitionSpec = { (scaleIn(spring(dampingRatio = 0.45f)) + fadeIn()) togetherWith (scaleOut() + fadeOut()) },
-                            label = "bubble",
-                            modifier = if (sharedId != null) Modifier.sharedElement("bubble-$sharedId") else Modifier,
-                        ) { cat -> CategoryBubble(cat, size = 48.dp, selected = true) }
-                        Spacer(Modifier.width(14.dp))
-                        Column(Modifier.weight(1f)) {
-                            Field(state.title, "What should I remind you?", MaterialTheme.typography.titleLarge) { v -> onChange { it.copy(title = v) } }
-                            Spacer(Modifier.height(10.dp))
-                            Row(verticalAlignment = Alignment.Top) {
-                                Icon(Icons.AutoMirrored.Rounded.Notes, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp).padding(top = 2.dp))
-                                Spacer(Modifier.width(8.dp))
-                                Field(state.notes, "Add notes", MaterialTheme.typography.bodyMedium) { v -> onChange { it.copy(notes = v) } }
-                            }
-                        }
+                GroupedCard {
+                    Field(state.title, "Title", MaterialTheme.typography.bodyLarge) { v -> onChange { it.copy(title = v) } }
+                    RowDivider()
+                    Field(state.notes, "Notes", MaterialTheme.typography.bodyLarge, minHeight = 72) { v -> onChange { it.copy(notes = v) } }
+                    if (state.category == Category.BILL || state.amount.isNotBlank() || showAmount) {
+                        RowDivider()
+                        Field(state.amount, "Amount", MaterialTheme.typography.bodyLarge) { v -> onChange { it.copy(amount = v) } }
                     }
                 }
             }
 
             item {
-                SectionCard("Category", Icons.Rounded.Category, modifier = Modifier.staggeredEntrance("sec1", 2, seen)) {
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Category.entries.forEach { cat ->
-                            SelectPill(cat.label, cat == state.category, { onCategory(cat) }, icon = cat.icon, accent = cat.color)
-                        }
-                    }
-                }
-            }
-
-            item {
-                SectionCard("When", Icons.Rounded.Schedule, modifier = Modifier.staggeredEntrance("sec2", 3, seen)) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Tile(Icons.Rounded.CalendarMonth, "Date", state.date?.let { formatDay(it, today) } ?: "No date", accent, Modifier.weight(1f)) { showDate = true }
-                        Tile(Icons.Rounded.Schedule, "Time", formatTime(state.time), accent, Modifier.weight(1f), enabled = state.date != null) { showTime = true }
-                    }
-                    Spacer(Modifier.height(12.dp))
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        SelectPill("Today", state.date == today, { onChange { it.copy(date = today) } }, accent = accent)
-                        SelectPill("Tomorrow", state.date == today.plusDays(1), { onChange { it.copy(date = today.plusDays(1)) } }, accent = accent)
-                        SelectPill("Next week", state.date == today.plusWeeks(1), { onChange { it.copy(date = today.plusWeeks(1)) } }, accent = accent)
-                        SelectPill("No date", state.date == null, { onChange { it.copy(date = null, repeat = RepeatForm()) } }, accent = accent)
-                    }
-                }
-            }
-
-            item {
-                SectionCard("Repeat", Icons.Rounded.Repeat, modifier = Modifier.staggeredEntrance("sec3", 4, seen)) {
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        SelectPill("Never", state.repeat.freq == null, { onChange { it.copy(repeat = RepeatForm()) } }, accent = accent)
-                        listOf(Freq.DAILY to "Daily", Freq.WEEKLY to "Weekly", Freq.MONTHLY to "Monthly", Freq.YEARLY to "Yearly").forEach { (f, label) ->
-                            SelectPill(label, state.repeat.freq == f, {
-                                onChange { s -> s.copy(date = s.date ?: today, repeat = s.repeat.copy(freq = f, weekdays = if (f == Freq.WEEKLY) setOf((s.date ?: today).dayOfWeek) else emptySet(), lastDayOfMonth = false)) }
-                            }, accent = accent)
-                        }
-                    }
-                    AnimatedVisibility(state.repeat.freq != null) {
+                GroupedCard {
+                    SwitchRow(
+                        "Date", state.date != null,
+                        onChange = { on -> onChange { it.copy(date = if (on) today else null, repeat = if (on) it.repeat else RepeatForm()) } },
+                        icon = Icons.Rounded.CalendarMonth, iconColor = c.danger,
+                        subtitle = state.date?.let { "${formatDay(it, today)}, ${formatTime(state.time)}" },
+                    )
+                    AnimatedVisibility(state.date != null, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
                         Column {
-                            Spacer(Modifier.height(16.dp))
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text("Every", style = MaterialTheme.typography.bodyLarge)
-                                Spacer(Modifier.width(12.dp))
-                                Stepper(state.repeat.interval, accent) { n -> onChange { it.copy(repeat = it.repeat.copy(interval = n)) } }
-                                Spacer(Modifier.width(12.dp))
-                                val unit = when (state.repeat.freq) { Freq.DAILY -> "day"; Freq.WEEKLY -> "week"; Freq.MONTHLY -> "month"; else -> "year" }
-                                Text(if (state.repeat.interval == 1) unit else "${unit}s", style = MaterialTheme.typography.bodyLarge)
-                            }
-                            if (state.repeat.freq == Freq.WEEKLY) {
-                                Spacer(Modifier.height(14.dp))
-                                Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                                    DayOfWeek.entries.forEach { d ->
-                                        val on = d in state.repeat.weekdays
-                                        val bg by animateColorAsState(if (on) accent else MaterialTheme.colorScheme.surfaceContainer, label = "dow")
-                                        Box(
-                                            Modifier.size(38.dp).clip(CircleShape).background(bg).clickable(role = Role.Checkbox) {
-                                                onChange { s -> s.copy(repeat = s.repeat.copy(weekdays = if (on) s.repeat.weekdays - d else s.repeat.weekdays + d)) }
-                                            },
-                                            contentAlignment = Alignment.Center,
-                                        ) {
-                                            Text(d.name.take(1), color = if (on) Color.White else MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.labelLarge)
-                                        }
-                                    }
-                                }
-                            }
-                            if (state.repeat.freq == Freq.MONTHLY) {
-                                Spacer(Modifier.height(10.dp))
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text("On the last day of the month", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
-                                    Switch(state.repeat.lastDayOfMonth, { v -> onChange { it.copy(repeat = it.repeat.copy(lastDayOfMonth = v)) } })
-                                }
-                            }
-                            state.repeat.toRule(state.date)?.let {
-                                Spacer(Modifier.height(10.dp))
-                                Text(it.describe(), style = MaterialTheme.typography.labelLarge, color = accent)
-                            }
+                            RowDivider(56.dp)
+                            SettingRow("Day", value = state.date?.let { formatDay(it, today) } ?: "", onClick = { showDate = true }, valueColor = c.accent, showChevron = false)
+                            RowDivider(56.dp)
+                            SettingRow("Time", icon = Icons.Rounded.Schedule, iconColor = c.accent, value = formatTime(state.time), valueColor = c.accent, onClick = { showTime = true }, showChevron = false)
                         }
                     }
                 }
             }
 
             item {
-                SectionCard("Alerts", Icons.Rounded.Notifications, modifier = Modifier.staggeredEntrance("sec4", 5, seen)) {
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        ALERT_CHOICES.forEach { m ->
-                            val on = m in state.alertOffsets
-                            SelectPill(describeOffset(m), on, {
-                                onChange { s -> s.copy(alertOffsets = if (on && s.alertOffsets.size > 1) s.alertOffsets - m else s.alertOffsets + m) }
-                            }, icon = if (on) Icons.Rounded.Check else null, accent = accent)
-                        }
-                    }
+                GroupedCard {
+                    val preset = state.repeat.preset()
+                    SettingRow(
+                        "Repeat", icon = Icons.Rounded.Repeat, iconColor = Color(0xFF6B6B72),
+                        value = preset?.label ?: state.repeat.toRule(state.date)?.describe() ?: "Never",
+                        onClick = { sheet = "repeat" },
+                    )
+                    RowDivider(56.dp)
+                    SettingRow(
+                        "Alerts", icon = Icons.Rounded.Notifications, iconColor = c.danger,
+                        value = state.alertOffsets.sorted().joinToString(", ") { describeOffset(it) },
+                        onClick = { sheet = "alerts" },
+                    )
+                    RowDivider(56.dp)
+                    SwitchRow(
+                        "Ring Like an Alarm", state.style == AlertStyle.ALARM,
+                        onChange = { on -> onChange { it.copy(style = if (on) AlertStyle.ALARM else AlertStyle.NOTIFICATION, nagMinutes = if (on) (it.nagMinutes ?: 5) else it.nagMinutes) } },
+                        icon = Icons.Rounded.Alarm, iconColor = c.warning,
+                    )
+                    RowDivider(56.dp)
+                    SettingRow(
+                        "Keep Reminding", icon = Icons.Rounded.NotificationsActive, iconColor = Color(0xFF5E5CE6),
+                        value = state.nagMinutes?.let { "Every $it min" } ?: "Off",
+                        onClick = { sheet = "nag" },
+                    )
                 }
             }
 
             item {
-                SectionCard("How to remind you", Icons.Rounded.NotificationsActive, modifier = Modifier.staggeredEntrance("sec5", 6, seen)) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        StyleCard(Icons.Rounded.Notifications, "Notification", "A gentle ping", state.style == AlertStyle.NOTIFICATION, accent, Modifier.weight(1f)) {
-                            onChange { it.copy(style = AlertStyle.NOTIFICATION) }
+                GroupedCard {
+                    SettingRow(
+                        "Category", value = state.category.label, onClick = { sheet = "category" },
+                        trailing = null,
+                        icon = null,
+                    )
+                    RowDivider()
+                    Column(Modifier.padding(16.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(Modifier.size(28.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(7.dp)).background(c.warning), contentAlignment = Alignment.Center) {
+                                androidx.compose.material3.Icon(Icons.Rounded.Flag, null, tint = Color.White, modifier = Modifier.size(17.dp))
+                            }
+                            Spacer(Modifier.width(12.dp))
+                            Text("Priority", style = MaterialTheme.typography.bodyLarge, color = c.label)
                         }
-                        StyleCard(Icons.Rounded.Alarm, "Alarm", "Full screen, rings", state.style == AlertStyle.ALARM, accent, Modifier.weight(1f)) {
-                            onChange { it.copy(style = AlertStyle.ALARM, nagMinutes = it.nagMinutes ?: 5) }
-                        }
-                    }
-                    Spacer(Modifier.height(16.dp))
-                    Text("Keep reminding me until it's done", style = MaterialTheme.typography.titleSmall)
-                    Spacer(Modifier.height(10.dp))
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        NAG_CHOICES.forEach { n ->
-                            SelectPill(if (n == null) "Off" else "Every $n min", state.nagMinutes == n, { onChange { it.copy(nagMinutes = n) } }, accent = accent)
-                        }
-                    }
-                }
-            }
-
-            item {
-                SectionCard("Priority", Icons.Rounded.Flag, modifier = Modifier.staggeredEntrance("sec6", 7, seen)) {
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Priority.entries.reversed().forEach { p ->
-                            val c = p.color ?: MaterialTheme.colorScheme.onSurfaceVariant
-                            SelectPill(p.label, state.priority == p, { onChange { it.copy(priority = p) } }, icon = Icons.Rounded.Flag, accent = c)
-                        }
+                        Spacer(Modifier.height(12.dp))
+                        val order = listOf(Priority.NONE, Priority.LOW, Priority.MEDIUM, Priority.HIGH)
+                        SegmentedControl(listOf("None", "Low", "Medium", "High"), order.indexOf(state.priority), { i -> onChange { it.copy(priority = order[i]) } })
                     }
                 }
             }
 
-            if (state.category == Category.BILL || state.amount.isNotBlank()) {
+            if (state.category != Category.BILL && state.amount.isBlank() && !showAmount) {
                 item {
-                    SectionCard("Amount", Icons.Rounded.Payments, modifier = Modifier.staggeredEntrance("sec7", 8, seen)) {
-                        Field(state.amount, "e.g. ₹12,000", MaterialTheme.typography.titleLarge, KeyboardType.Text) { v -> onChange { it.copy(amount = v) } }
+                    GroupedCard {
+                        SettingRow("Add Amount", icon = Icons.Rounded.Payments, iconColor = c.success, onClick = { showAmount = true })
+                    }
+                }
+            }
+
+            if (!state.isNew) {
+                item {
+                    GroupedCard {
+                        Text(
+                            "Delete Reminder",
+                            style = MaterialTheme.typography.bodyLarge, color = c.danger, textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth().clickable(role = Role.Button) { confirmDelete = true }.padding(vertical = 14.dp),
+                        )
                     }
                 }
             }
         }
+    }
 
-        GradientButton(
-            text = if (state.isNew) "Save reminder" else "Save changes",
-            onClick = onSave,
-            enabled = state.canSave,
-            icon = Icons.Rounded.EventAvailable,
-            modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().navigationBarsPadding().imePadding().padding(16.dp),
+    when (sheet) {
+        "repeat" -> {
+            val current = state.repeat.preset()
+            OptionSheet(
+                title = "Repeat",
+                options = RepeatPreset.entries.map { it to it.label },
+                isSelected = { it == current },
+                onSelect = { p -> onChange { s -> s.copy(date = s.date ?: today, repeat = p.toForm(s.date ?: today)) }; sheet = null },
+                onDismiss = { sheet = null },
+            )
+        }
+        "alerts" -> OptionSheet(
+            title = "Alerts",
+            options = ALERT_CHOICES.map { it to describeOffset(it) },
+            isSelected = { it in state.alertOffsets },
+            onSelect = { m -> onChange { s -> s.copy(alertOffsets = if (m in s.alertOffsets && s.alertOffsets.size > 1) s.alertOffsets - m else s.alertOffsets + m) } },
+            onDismiss = { sheet = null },
+        )
+        "nag" -> OptionSheet(
+            title = "Keep Reminding",
+            options = NAG_CHOICES.map { it to (it?.let { n -> "Every $n minutes" } ?: "Off") },
+            isSelected = { it == state.nagMinutes },
+            onSelect = { n -> onChange { it.copy(nagMinutes = n) }; sheet = null },
+            onDismiss = { sheet = null },
+        )
+        "category" -> OptionSheet(
+            title = "Category",
+            options = Category.entries.map { it to it.label },
+            isSelected = { it == state.category },
+            onSelect = { cat -> onCategory(cat); sheet = null },
+            onDismiss = { sheet = null },
+            icons = { cat -> { CategoryGlyph(cat) } },
         )
     }
 
     if (showDate) {
-        val pickerState = rememberDatePickerState(
-            initialSelectedDateMillis = (state.date ?: today).atStartOfDay().toInstant(ZoneOffset.UTC).toEpochMilli(),
-        )
+        val pickerState = rememberDatePickerState(initialSelectedDateMillis = (state.date ?: today).atStartOfDay().toInstant(ZoneOffset.UTC).toEpochMilli())
         DatePickerDialog(
             onDismissRequest = { showDate = false },
             confirmButton = {
                 TextButton(onClick = {
-                    pickerState.selectedDateMillis?.let { ms ->
-                        val d = Instant.ofEpochMilli(ms).atZone(ZoneOffset.UTC).toLocalDate()
-                        onChange { it.copy(date = d) }
-                    }
+                    pickerState.selectedDateMillis?.let { ms -> onChange { it.copy(date = Instant.ofEpochMilli(ms).atZone(ZoneOffset.UTC).toLocalDate()) } }
                     showDate = false
-                }) { Text("OK") }
+                }) { Text("Done") }
             },
             dismissButton = { TextButton(onClick = { showDate = false }) { Text("Cancel") } },
         ) { DatePicker(pickerState) }
@@ -362,10 +325,7 @@ fun EditContent(
         AlertDialog(
             onDismissRequest = { showTime = false },
             confirmButton = {
-                TextButton(onClick = {
-                    onChange { it.copy(time = LocalTime.of(timeState.hour, timeState.minute)) }
-                    showTime = false
-                }) { Text("OK") }
+                TextButton(onClick = { onChange { it.copy(time = LocalTime.of(timeState.hour, timeState.minute)) }; showTime = false }) { Text("Done") }
             },
             dismissButton = { TextButton(onClick = { showTime = false }) { Text("Cancel") } },
             text = { TimePicker(timeState) },
@@ -375,84 +335,26 @@ fun EditContent(
     if (confirmDelete) {
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
-            title = { Text("Delete this reminder?") },
-            text = { Text("“${state.title}” will be removed and its alarms cancelled.") },
-            confirmButton = { TextButton(onClick = { confirmDelete = false; onDelete() }) { Text("Delete", color = MaterialTheme.colorScheme.error) } },
-            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Keep") } },
+            title = { Text("Delete Reminder?") },
+            text = { Text("“${state.title}” and its alerts will be removed.") },
+            confirmButton = { TextButton(onClick = { confirmDelete = false; onDelete() }) { Text("Delete", color = c.danger) } },
+            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Cancel") } },
         )
     }
 }
 
 @Composable
-private fun RoundIcon(icon: ImageVector, description: String, onClick: () -> Unit) {
-    Surface(shape = CircleShape, color = MaterialTheme.colorScheme.surface, border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
-        IconButton(onClick = onClick) { Icon(icon, contentDescription = description) }
-    }
-}
-
-@Composable
-private fun Field(
-    value: String,
-    placeholder: String,
-    style: androidx.compose.ui.text.TextStyle,
-    keyboardType: KeyboardType = KeyboardType.Text,
-    onValue: (String) -> Unit,
-) {
-    Box {
-        if (value.isEmpty()) Text(placeholder, style = style, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f))
+private fun Field(value: String, placeholder: String, style: TextStyle, minHeight: Int = 0, onValue: (String) -> Unit) {
+    val c = Rem.colors
+    Box(Modifier.fillMaxWidth().heightIn(min = maxOf(48, minHeight).dp).padding(horizontal = 16.dp, vertical = 13.dp)) {
+        if (value.isBlank()) Text(placeholder, style = style, color = c.tertiaryLabel)
         BasicTextField(
             value = value,
             onValueChange = onValue,
-            textStyle = style.copy(color = MaterialTheme.colorScheme.onSurface),
-            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences, keyboardType = keyboardType),
+            textStyle = style.copy(color = c.label),
+            cursorBrush = SolidColor(c.accent),
+            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
             modifier = Modifier.fillMaxWidth(),
         )
-    }
-}
-
-@Composable
-private fun Tile(icon: ImageVector, label: String, value: String, accent: Color, modifier: Modifier = Modifier, enabled: Boolean = true, onClick: () -> Unit) {
-    Column(
-        modifier
-            .clip(RoundedCornerShape(18.dp))
-            .background(accent.copy(alpha = if (enabled) 0.10f else 0.04f))
-            .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
-            .padding(14.dp),
-    ) {
-        Icon(icon, null, tint = accent.copy(alpha = if (enabled) 1f else 0.4f), modifier = Modifier.size(20.dp))
-        Spacer(Modifier.height(10.dp))
-        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface.copy(alpha = if (enabled) 1f else 0.4f))
-    }
-}
-
-@Composable
-private fun Stepper(value: Int, accent: Color, onValue: (Int) -> Unit) {
-    Row(
-        Modifier.clip(RoundedCornerShape(50)).background(MaterialTheme.colorScheme.surfaceContainer),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        IconButton(onClick = { onValue((value - 1).coerceAtLeast(1)) }, enabled = value > 1) { Icon(Icons.Rounded.Remove, "Fewer") }
-        Text("$value", style = MaterialTheme.typography.titleMedium, color = accent, modifier = Modifier.padding(horizontal = 4.dp))
-        IconButton(onClick = { onValue((value + 1).coerceAtMost(99)) }) { Icon(Icons.Rounded.Add, "More") }
-    }
-}
-
-@Composable
-private fun StyleCard(icon: ImageVector, title: String, subtitle: String, selected: Boolean, accent: Color, modifier: Modifier = Modifier, onClick: () -> Unit) {
-    val border by animateColorAsState(if (selected) accent else MaterialTheme.colorScheme.outlineVariant, label = "styleBorder")
-    Column(
-        modifier
-            .clip(RoundedCornerShape(18.dp))
-            .border(if (selected) 2.dp else 1.dp, border, RoundedCornerShape(18.dp))
-            .background(if (selected) accent.copy(alpha = 0.08f) else Color.Transparent)
-            .clickable(role = Role.RadioButton, onClick = onClick)
-            .padding(14.dp),
-    ) {
-        Icon(icon, null, tint = if (selected) accent else MaterialTheme.colorScheme.onSurfaceVariant)
-        Spacer(Modifier.height(8.dp))
-        Text(title, style = MaterialTheme.typography.titleSmall)
-        Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }

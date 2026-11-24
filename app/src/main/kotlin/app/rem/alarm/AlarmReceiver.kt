@@ -45,5 +45,6 @@ class AlarmReceiver : BroadcastReceiver() {
         val next = listOfNotNull(nag, nextAlert).minByOrNull { it.fireAt }
         c.scheduler.cancel(id)
         if (next != null) c.scheduler.set(next, reminder.alertStyle)
+        app.rem.widget.Widgets.refresh(context) // "late" labels change once something is due
     }
 }

@@ -126,4 +126,63 @@ class QuickAddParserTest {
         assertEquals(dt("2027-03-12T09:00"), r.dueAt)
         assertEquals(Category.BIRTHDAY, r.category)
     }
+
+    // ---- Spoken phrases, as a speech recogniser writes them ----
+
+    @Test fun spokenPmWithDots() {
+        val r = parser.parse("Remind me to call mom tomorrow at 6 p.m.")
+        assertEquals("call mom", r.title)
+        assertEquals(dt("2026-11-25T18:00"), r.dueAt)
+    }
+
+    @Test fun spokenTimeBeforeTask() {
+        val r = parser.parse("remind me at 5 pm to take out the trash")
+        assertEquals("take out the trash", r.title)
+        assertEquals(dt("2026-11-24T17:00"), r.dueAt)
+    }
+
+    @Test fun spokenNumberWords() {
+        assertEquals(dt("2026-11-25T18:30"), parser.parse("dinner with Ravi tomorrow at six thirty").dueAt)
+        assertEquals(dt("2026-11-24T10:10"), parser.parse("check the oven in ten minutes").dueAt)
+        assertEquals(dt("2026-11-24T12:00"), parser.parse("in a couple of hours stretch").dueAt)
+        assertEquals(dt("2026-11-24T19:00"), parser.parse("call the plumber at seven pm").dueAt)
+    }
+
+    @Test fun spokenHalfPastAndQuarter() {
+        assertEquals(dt("2026-11-25T09:30"), parser.parse("standup tomorrow at half past nine in the morning").dueAt)
+        assertEquals(dt("2026-11-24T18:45"), parser.parse("leave for the station at quarter to seven").dueAt)
+        assertEquals(dt("2026-11-25T08:15"), parser.parse("bus tomorrow at quarter past 8 in the morning").dueAt)
+    }
+
+    @Test fun spokenPartOfDayFixesAmPm() {
+        val r = parser.parse("take my pills at 9 in the evening")
+        assertEquals(dt("2026-11-24T21:00"), r.dueAt)
+        assertEquals("take my pills", r.title)
+        assertEquals(dt("2026-11-25T08:00"), parser.parse("yoga tomorrow at eight in the morning").dueAt)
+    }
+
+    @Test fun spokenOClock() {
+        assertEquals(dt("2026-11-24T17:00"), parser.parse("pick up the kids at five o'clock").dueAt)
+    }
+
+    @Test fun spokenMonthlyOrdinal() {
+        val r = parser.parse("Pay rent on the first of every month at 9 a.m.")
+        assertEquals("Pay rent", r.title)
+        assertEquals("FREQ=MONTHLY;BYMONTHDAY=1", r.recurrence?.toRRule())
+        assertEquals(dt("2026-12-01T09:00"), r.dueAt)
+    }
+
+    @Test fun spokenBirthdayOrdinalMonth() {
+        val r = parser.parse("Mom's birthday on March twelfth every year")
+        assertEquals("FREQ=YEARLY", r.recurrence?.toRRule())
+        assertEquals(dt("2027-03-12T09:00"), r.dueAt)
+    }
+
+    @Test fun spokenEveryNumberWord() {
+        assertEquals("FREQ=WEEKLY;INTERVAL=2", parser.parse("water the plants every two weeks").recurrence?.toRRule())
+    }
+
+    @Test fun numberWordsInTitlesAreLeftAlone() {
+        assertEquals("buy two apples", parser.parse("buy two apples").title)
+    }
 }

@@ -18,7 +18,6 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZoneId
 
@@ -30,7 +29,7 @@ sealed interface HomeEvent {
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class HomeViewModel(private val container: AppContainer) : ViewModel() {
-    private val selectedDate = MutableStateFlow<LocalDate?>(null)
+    private val smartList = MutableStateFlow(SmartList.TODAY)
     private val selectedCategory = MutableStateFlow<Category?>(null)
     private val needsSetup = MutableStateFlow(false)
     private val _events = MutableSharedFlow<HomeEvent>(extraBufferCapacity = 4)
@@ -52,15 +51,15 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
         container.repository.observeActive(),
         completedToday,
         now,
-        combine(selectedDate, selectedCategory, needsSetup) { d, c, s -> Triple(d, c, s) },
+        combine(smartList, selectedCategory, needsSetup) { l, c, s -> Triple(l, c, s) },
     ) { active, done, n, (d, c, s) ->
         // Recurring reminders completed today stay active, so only count real completions.
         val completions = done.filter { it.completedAt != null }
         buildHomeState(active, completions, n, d, c, s)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeUiState())
 
-    fun selectDate(date: LocalDate) {
-        selectedDate.value = if (date == LocalDate.now(container.clock)) null else date
+    fun selectList(list: SmartList) {
+        smartList.value = list
     }
 
     fun selectCategory(category: Category?) {

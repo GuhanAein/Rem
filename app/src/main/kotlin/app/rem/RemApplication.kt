@@ -20,7 +20,7 @@ class AppContainer(context: Context, val clock: Clock = Clock.systemDefaultZone(
     val parser get() = QuickAddParser(Clock.systemDefaultZone())
     val notifier = Notifier(appContext)
     val scheduler = AlarmScheduler(appContext, planner)
-    val service = ReminderService(repository, planner, scheduler, notifier)
+    val service = ReminderService(repository, planner, scheduler, notifier, onChanged = { app.rem.widget.Widgets.refresh(appContext) })
 }
 
 class RemApplication : Application() {
