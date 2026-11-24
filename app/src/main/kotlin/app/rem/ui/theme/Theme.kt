@@ -120,8 +120,8 @@ val RemShapes = Shapes(
 
 /** Rem is dark by design; [darkTheme] is accepted for API compatibility. */
 @Composable
-fun RemTheme(@Suppress("UNUSED_PARAMETER") darkTheme: Boolean = true, content: @Composable () -> Unit) {
-    val c = Noir
+fun RemTheme(@Suppress("UNUSED_PARAMETER") darkTheme: Boolean = true, accent: app.rem.data.Accent = app.rem.data.Accent.GOLD, content: @Composable () -> Unit) {
+    val c = Noir.copy(gold = Color(accent.argb), goldDeep = Color(accent.deep))
     val scheme = darkColorScheme(
         primary = c.gold, onPrimary = c.onIvory, primaryContainer = c.elevated, onPrimaryContainer = c.label,
         secondary = c.gold, background = c.canvas, onBackground = c.label, surface = c.surface, onSurface = c.label,

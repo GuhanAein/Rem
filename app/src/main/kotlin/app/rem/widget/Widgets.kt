@@ -72,7 +72,7 @@ data class WidgetRow(val id: Long, val title: String, val time: String, val late
 /** Overdue first, then today, then the next few upcoming. */
 internal fun widgetRows(active: List<Reminder>, now: LocalDateTime, max: Int = 8): Pair<Int, List<WidgetRow>> {
     val today = now.toLocalDate()
-    val dated = active.filter { it.dueAt != null }.sortedBy { it.dueAt }
+    val dated = active.filter { it.dueAt != null && !it.isPrivate }.sortedBy { it.dueAt }
     val dueToday = dated.count { it.dueAt!!.toLocalDate() <= today }
     val rows = dated.take(max).map { r ->
         val due = r.dueAt!!

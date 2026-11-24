@@ -8,15 +8,22 @@
 - Rem Noir premium design, fonts, motion and haptics
 - 79 automated tests, CI and an APK build
 
+## Done (v0.2)
+Smarter reminders, context triggers, life admin, people, motivation, premium touches and trust features (see the README).
+
+**Known limits:**
+- Wired-headphone triggers only work while Rem is running, because Android restricts that signal.
+- "Any pharmacy or supermarket" needs a places database, so place triggers use places you save yourself.
+- Accountability and "remind them" go through your own messaging apps; there is no server yet.
+
 ## Next
 
-### v0.2: Ship-ready (recommended next)
+### v0.3: Ship-ready (recommended next)
 Make it something you can confidently put on the Play Store.
 - **Real-device testing:** alarms on Xiaomi, Samsung and OnePlus; voice; widgets; lock screen
-- **Settings screen:** default reminder time, snooze options, alarm sound and vibration, "morning summary" time, app lock
 - **Search** across all reminders
 - **Subtasks / checklists** inside a reminder
-- **Backup & restore** to a file or Google Drive, plus import from TickTick, Todoist and Google Tasks
+- **Import** from TickTick, Todoist and Google Tasks, plus Google Drive backup
 - **Completed history** with restore
 - **Accessibility:** large text and TalkBack
 - **Play Store kit:** release signing, privacy policy (no data collected), store screenshots and listing text

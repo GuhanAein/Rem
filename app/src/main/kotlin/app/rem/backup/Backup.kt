@@ -1,10 +1,9 @@
 package app.rem.backup
 
 import android.content.Context
-import android.graphics.Paint
-import android.graphics.pdf.PdfDocument
 import app.rem.container
 import app.rem.core.export.IcsWriter
+import app.rem.core.export.PdfWriter
 import app.rem.core.model.Reminder
 import app.rem.data.PersonEntity
 import app.rem.data.PlaceEntity
@@ -92,38 +91,16 @@ object Backup {
     /** A clean printable list of every active reminder. */
     suspend fun exportPdf(context: Context): File {
         val reminders = context.container.repository.allActive().filter { !it.isPrivate }.sortedWith(compareBy(nullsLast()) { it.dueAt })
-        val doc = PdfDocument()
-        val pageW = 595
-        val pageH = 842
-        val title = Paint().apply { textSize = 26f; isFakeBoldText = true; isAntiAlias = true }
-        val head = Paint().apply { textSize = 10f; color = 0xFF8E8B84.toInt(); letterSpacing = 0.12f; isAntiAlias = true }
-        val body = Paint().apply { textSize = 12f; isAntiAlias = true }
-        val meta = Paint().apply { textSize = 10f; color = 0xFF6B6965.toInt(); isAntiAlias = true }
-        var pageNo = 1
-        var page = doc.startPage(PdfDocument.PageInfo.Builder(pageW, pageH, pageNo).create())
-        var y = 64f
-        page.canvas.drawText("Rem", 48f, y, title)
-        y += 20f
-        page.canvas.drawText("REMINDERS · ${LocalDate.now()}", 48f, y, head)
-        y += 28f
-        for (r in reminders) {
-            if (y > pageH - 60) {
-                doc.finishPage(page)
-                page = doc.startPage(PdfDocument.PageInfo.Builder(pageW, pageH, ++pageNo).create())
-                y = 56f
+        val lines = buildList {
+            add(PdfWriter.Line("Rem", 28f, bold = true))
+            add(PdfWriter.Line("REMINDERS  \u00B7  ${LocalDate.now()}", 9f, grey = true, gapBefore = 2f))
+            reminders.forEach { r ->
+                add(PdfWriter.Line(r.title, 12f, bold = true, gapBefore = 12f))
+                add(PdfWriter.Line(listOfNotNull(r.category.label, describeDue(r.dueAt), r.amount).joinToString("  \u00B7  "), 10f, grey = true))
+                if (r.notes.isNotBlank()) add(PdfWriter.Line(r.notes.take(120), 10f, grey = true))
             }
-            page.canvas.drawCircle(54f, y - 4f, 4f, Paint().apply { style = Paint.Style.STROKE; strokeWidth = 1f })
-            page.canvas.drawText(r.title.take(70), 68f, y, body)
-            y += 14f
-            val line = listOfNotNull(r.category.label, describeDue(r.dueAt), r.amount).joinToString("  ·  ")
-            page.canvas.drawText(line, 68f, y, meta)
-            y += 20f
         }
-        doc.finishPage(page)
-        val file = File(shareDir(context), "rem-reminders.pdf")
-        file.outputStream().use { doc.writeTo(it) }
-        doc.close()
-        return file
+        return File(shareDir(context), "rem-reminders.pdf").apply { writeBytes(PdfWriter.write(lines)) }
     }
 
     /** "Remind them": a calendar invite anyone can open, with an alert built in. */

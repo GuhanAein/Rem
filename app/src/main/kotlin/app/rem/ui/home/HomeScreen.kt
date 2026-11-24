@@ -47,6 +47,12 @@ import androidx.compose.material.icons.rounded.Snooze
 import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.WbSunny
+import androidx.compose.material.icons.rounded.Spa
+import androidx.compose.material.icons.rounded.Group
+import androidx.compose.material.icons.rounded.Insights
+import androidx.compose.material.icons.rounded.NotificationsOff
+import app.rem.container
+import kotlinx.coroutines.launch
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Snackbar
@@ -117,8 +123,13 @@ fun HomeScreen(
     onOpen: (Long) -> Unit,
     onMoreOptions: (String) -> Unit,
     onSetup: () -> Unit,
+    onSpace: (String) -> Unit = {},
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val settings by context.container.settings.state.collectAsStateWithLifecycle()
+    var followUp by remember { mutableStateOf<Reminder?>(null) }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
     val snackbar = remember { SnackbarHostState() }
     var showQuickAdd by rememberSaveable { mutableStateOf(false) }
     var showVoice by rememberSaveable { mutableStateOf(false) }
@@ -138,6 +149,7 @@ fun HomeScreen(
         viewModel.events.collect { e ->
             when (e) {
                 is HomeEvent.Completed -> {
+                    if (!e.before.followUp.isNullOrBlank()) followUp = e.before
                     val r = snackbar.showSnackbar("Completed “${e.before.title}”", actionLabel = "Undo", duration = SnackbarDuration.Short)
                     if (r == SnackbarResult.ActionPerformed) viewModel.undo(e.before)
                 }
@@ -158,7 +170,27 @@ fun HomeScreen(
         onSelectList = viewModel::selectList,
         onSelectCategory = viewModel::selectCategory,
         onSetup = onSetup,
+        onSpace = onSpace,
+        focusMode = settings.focusMode,
+        silencedUntil = settings.panicUntil?.takeIf { it.isAfter(java.time.Instant.now()) }?.let {
+            app.rem.ui.format.formatTime(java.time.LocalDateTime.ofInstant(it, java.time.ZoneId.systemDefault()).toLocalTime())
+        },
+        onEndSilence = { scope.launch { context.container.service.endPanic() } },
     )
+
+    followUp?.let { done ->
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { followUp = null },
+            title = { Text("Done. What\u2019s next?") },
+            text = { Text("You planned a follow-up: \u201C${done.followUp}\u201D. Add it now and say when.") },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = { prefill = done.followUp.orEmpty() + " "; showQuickAdd = true; followUp = null }) {
+                    Text("Add it", color = Rem.colors.gold)
+                }
+            },
+            dismissButton = { androidx.compose.material3.TextButton(onClick = { followUp = null }) { Text("Not now") } },
+        )
+    }
 
     if (showQuickAdd) {
         QuickAddSheet(
@@ -219,8 +251,13 @@ fun HomeContent(
     onSelectList: (SmartList) -> Unit = {},
     onSelectCategory: (Category?) -> Unit = {},
     onSetup: () -> Unit = {},
+    onSpace: (String) -> Unit = {},
+    focusMode: Boolean = false,
+    silencedUntil: String? = null,
+    onEndSilence: () -> Unit = {},
 ) {
     val seen = remember { mutableSetOf<Any>() }
+    var showAll by remember { mutableStateOf(false) }
     val c = Rem.colors
     val scrolled by remember { derivedStateOf { listState.firstVisibleItemIndex > 1 || (listState.firstVisibleItemIndex == 1 && listState.firstVisibleItemScrollOffset > 0) } }
     val lists = SmartList.entries
@@ -250,6 +287,18 @@ fun HomeContent(
                     onSelect = { onSelectList(lists[it]) },
                     modifier = Modifier.padding(top = 28.dp).staggeredEntrance("seg", 1, seen),
                 )
+            }
+            item(key = "spaces") { Spaces(onSpace, Modifier.padding(top = 14.dp).staggeredEntrance("spaces", 2, seen)) }
+            if (silencedUntil != null) {
+                item(key = "silenced") {
+                    GroupedCard(Modifier.padding(top = 14.dp).animateItem()) {
+                        SettingRow("Silenced until $silencedUntil", icon = Icons.Rounded.NotificationsOff, iconColor = c.gold, value = "Resume", valueColor = c.gold, showChevron = false, onClick = onEndSilence)
+                    }
+                }
+            }
+            if (focusMode && !showAll && !state.isEmpty) {
+                item(key = "focus") { FocusView(state, onOpen, onComplete, onShowAll = { showAll = true }) }
+                return@LazyColumn
             }
             if (state.selectedCategory != null) {
                 item(key = "filter") {
@@ -380,6 +429,58 @@ private fun Header(state: HomeUiState, onSetup: () -> Unit, modifier: Modifier =
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun Spaces(onSpace: (String) -> Unit, modifier: Modifier = Modifier) {
+    val c = Rem.colors
+    val spaces = listOf(
+        Triple("life", "Life", Icons.Rounded.Spa),
+        Triple("people", "People", Icons.Rounded.Group),
+        Triple("insights", "Insights", Icons.Rounded.Insights),
+        Triple("morning", "Today\u2019s card", Icons.Rounded.WbSunny),
+    )
+    androidx.compose.foundation.lazy.LazyRow(modifier, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        items(spaces.size) { i ->
+            val (route, label, icon) = spaces[i]
+            val interaction = remember { MutableInteractionSource() }
+            Row(
+                Modifier.pressScale(interaction, 0.95f).noirSurface(RoundedCornerShape(50))
+                    .clickable(interaction, ripple()) { onSpace(route) }.padding(horizontal = 14.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(icon, null, tint = c.gold, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(label, style = MaterialTheme.typography.labelMedium, color = c.label)
+            }
+        }
+    }
+}
+
+/** Focus mode: just the next three things, large and calm. */
+@Composable
+private fun FocusView(state: HomeUiState, onOpen: (Long) -> Unit, onComplete: (Long) -> Unit, onShowAll: () -> Unit) {
+    val c = Rem.colors
+    val next = state.sections.flatMap { it.items }.take(3)
+    Column(Modifier.padding(top = 24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text("FOCUS", style = MaterialTheme.typography.labelSmall, color = c.gold, modifier = Modifier.padding(start = 6.dp))
+        next.forEach { m ->
+            Row(
+                Modifier.fillMaxWidth().noirSurface().clickable { onOpen(m.id) }.padding(start = 6.dp, end = 20.dp, top = 18.dp, bottom = 18.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                app.rem.ui.components.CheckCircle(m.category.color, false, onCheck = { onComplete(m.id) }, size = 28.dp)
+                Column(Modifier.weight(1f)) {
+                    Text(m.title, style = MaterialTheme.typography.headlineMedium, color = c.label)
+                    Text(m.meta, style = MaterialTheme.typography.bodySmall, color = if (m.isLate) c.danger else c.secondaryLabel)
+                }
+                m.time?.let { Text(it, style = MaterialTheme.typography.headlineMedium, color = if (m.isLate) c.danger else c.gold) }
+            }
+        }
+        androidx.compose.material3.TextButton(onClick = onShowAll, modifier = Modifier.align(Alignment.CenterHorizontally)) {
+            Text("Show everything", color = c.secondaryLabel)
         }
     }
 }

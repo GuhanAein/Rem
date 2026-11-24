@@ -14,7 +14,7 @@ import java.time.Clock
 
 /** Manual dependency container: small app, no DI framework needed. */
 class AppContainer(context: Context, val clock: Clock = Clock.systemDefaultZone(), database: RemDatabase? = null) {
-    private val appContext = context.applicationContext
+    val appContext: Context = context.applicationContext
     val database: RemDatabase = database ?: RemDatabase.create(appContext)
     val repository = ReminderRepository(this.database.reminders())
     val planner = ReminderPlanner(clock)

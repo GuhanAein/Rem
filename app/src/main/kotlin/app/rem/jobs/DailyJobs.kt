@@ -60,6 +60,7 @@ object DailyJobs {
         val trials: List<String>,
         val nudges: List<String>,
         val gifts: List<String>,
+        val reliability: String? = null,
     ) {
         val isEmpty get() = today.isEmpty() && birthdays.isEmpty() && bills.isEmpty() && trials.isEmpty() && nudges.isEmpty()
     }
@@ -78,6 +79,9 @@ object DailyJobs {
             trials = active.filter { Subscriptions.trialEndingSoon(it, date) }.map { "${it.title}: trial ends soon. Cancel if you don't want it." },
             nudges = people.filter { Nudges.isDue(it, date) }.map { Nudges.message(it, date) },
             gifts = people.filter { Nudges.giftsDue(it, date) }.map { "Gift ideas for ${it.name}: ${it.giftIdeas.joinToString(", ")}" },
+            reliability = app.rem.core.insights.Reliability.report(
+                c.database.fired().since(System.currentTimeMillis() - 7L * 24 * 3600 * 1000).map { it.toRecord() },
+            ).takeIf { !it.healthy }?.let { "Your phone delayed ${it.late} alarms this week. Open Rem \u203A Settings \u203A Reliability to fix it." },
         )
     }
 
@@ -94,6 +98,7 @@ object DailyJobs {
             addAll(m.trials)
             addAll(m.nudges)
             addAll(m.gifts)
+            m.reliability?.let(::add)
         }
         val open = PendingIntent.getActivity(
             context, 9201, Intent(context, MainActivity::class.java).setAction(MainActivity.ACTION_MORNING),

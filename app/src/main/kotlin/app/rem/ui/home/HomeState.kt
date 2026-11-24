@@ -73,7 +73,8 @@ fun buildHomeState(
         val repeat = RecurrenceRule.parseOrNull(r.recurrence)?.describe()
         val clock = due?.let { formatTime(it.toLocalTime()) }
         val meta = listOfNotNull(
-            r.category.label,
+            if (r.isPrivate) "Private" else r.category.label,
+            r.trigger?.label,
             repeat,
             if (late && due != null) describeLateness(due, now) else null,
         ).joinToString("  \u00B7  ")

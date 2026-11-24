@@ -80,6 +80,7 @@ import app.rem.ui.format.formatDay
 import app.rem.ui.format.formatTime
 import app.rem.ui.motion.sharedBounds
 import app.rem.ui.theme.Rem
+import app.rem.container
 import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
@@ -87,8 +88,11 @@ import java.time.LocalTime
 import java.time.ZoneOffset
 
 @Composable
-fun EditScreen(viewModel: EditViewModel, onBack: () -> Unit) {
+fun EditScreen(viewModel: EditViewModel, onBack: () -> Unit, onManagePlaces: () -> Unit = {}) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val crowd by viewModel.crowd.collectAsStateWithLifecycle()
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val places by remember { context.container.database.places().observeAll() }.collectAsStateWithLifecycle(emptyList<app.rem.data.PlaceEntity>())
     EditContent(
         state = state,
         onBack = onBack,
@@ -96,7 +100,22 @@ fun EditScreen(viewModel: EditViewModel, onBack: () -> Unit) {
         onCategory = viewModel::selectCategory,
         onSave = { viewModel.save(onBack) },
         onDelete = { viewModel.delete(onBack) },
+        onKind = viewModel::setKind,
+        onExtra = viewModel::setExtra,
+        onEscalate = viewModel::setEscalating,
+        places = places,
+        onManagePlaces = onManagePlaces,
+        invite = viewModel::inviteFile,
     )
+    if (crowd.isNotEmpty()) {
+        AlertDialog(
+            onDismissRequest = { viewModel.keepAsIs(onBack) },
+            title = { Text("That time is busy") },
+            text = { Text("You have ${crowd.size} reminders within 15 minutes. Spread them out so each one gets your attention?") },
+            confirmButton = { TextButton(onClick = { viewModel.spreadOut(onBack) }) { Text("Spread out", color = Rem.colors.gold) } },
+            dismissButton = { TextButton(onClick = { viewModel.keepAsIs(onBack) }) { Text("Keep as is") } },
+        )
+    }
 }
 
 private val ALERT_CHOICES = listOf(0, 5, 15, 30, 60, 1440, 3 * 1440, 7 * 1440, 30 * 1440)
@@ -140,6 +159,13 @@ fun EditContent(
     onSave: () -> Unit = {},
     onDelete: () -> Unit = {},
     today: LocalDate = LocalDate.now(),
+    onKind: (app.rem.core.model.Kind) -> Unit = {},
+    onExtra: (String, String?) -> Unit = { _, _ -> },
+    onEscalate: (Boolean) -> Unit = {},
+    places: List<app.rem.data.PlaceEntity> = emptyList(),
+    onManagePlaces: () -> Unit = {},
+    invite: () -> java.io.File = { java.io.File("") },
+    listState: androidx.compose.foundation.lazy.LazyListState = androidx.compose.foundation.lazy.rememberLazyListState(),
 ) {
     val c = Rem.colors
     var showDate by remember { mutableStateOf(false) }
@@ -164,6 +190,7 @@ fun EditContent(
         }
 
         LazyColumn(
+            state = listState,
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 40.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp),
             modifier = Modifier.fillMaxSize().imePadding(),
@@ -246,6 +273,9 @@ fun EditContent(
                 }
             }
 
+            item { TimingSection(state, onChange, onEscalate) }
+            item { TriggerSection(state, places, onChange, onExtra, onManagePlaces) }
+            item { KindSection(state, onKind, onExtra, onChange) }
             item {
                 GroupedCard {
                     SettingRow(
@@ -274,6 +304,8 @@ fun EditContent(
                     }
                 }
             }
+
+            item { MoreSection(state, onChange, invite) }
 
             if (!state.isNew) {
                 item {

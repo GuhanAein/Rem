@@ -17,6 +17,43 @@
 - **Voice input** that understands spoken times, plus **home-screen widgets** and launcher shortcuts.
 - A premium dark design, edge-to-edge.
 
+## New in v0.2: remind everything, smarter
+**Smarter reminders**
+- **Only between:** fire only within allowed hours, such as "call the bank" on weekdays 10–4. Reminders outside the window move to the next allowed slot.
+- **Several times a day** (8, 2, 8) and **repeat until a date**, for a course of medicine.
+- **Random moments:** for example 5 times a day between 9 and 7, different every day so it never fades into the background.
+- **Deadline mode:** gentle notifications 7 and 3 days before, and a firm alarm on the day. Early alerts never ring as alarms.
+- **Chained follow-ups:** finishing "Book doctor" asks, "What's next: Doctor visit?"
+- **Tiny first step**, shown in the notification.
+- **Conflict warning:** "4 reminders within 15 minutes. Spread them out?"
+- **Snooze learning:** "You usually push Gym to 8:30. Move it?"
+
+**Context triggers**
+- **When I plug in tonight**, using WorkManager with a charging constraint.
+- **When I wake up**, which follows your phone's next alarm clock, and **before I sleep**.
+- **When headphones connect:** Bluetooth anytime; wired headphones while Rem is running.
+- **When I leave home**, and **arriving at or leaving a saved place**, using on-device geofences.
+- **Don't interrupt me:** holds alarms during calls and (optionally) calendar meetings.
+
+**Life admin (Life hub)**
+- **Subscriptions:** monthly and yearly total, renewal dates, "trial ends soon" and cancel-before-renewal.
+- **Warranty vault** with receipt photos and expiry alerts.
+- **Car service by distance:** km left plus an estimated date from your driving.
+- **Plants** with photos, **lend & borrow**, **return windows**, and **rotating family chores** ("Asha's turn").
+- One-tap **home and kids essentials**: AC filter, water purifier, gas cylinder, pest control, school fees, vaccinations, exams, PTM.
+
+**People**
+- Relationship nudges, such as "You haven't been in touch with Grandma in 2 weeks", with one-tap call and "talked today".
+- Gift ideas that surface two weeks before birthdays and anniversaries.
+- Anniversary maths ("turns 75", "10th anniversary") and importing birthdays from contacts.
+- **Remind someone else:** sends a calendar invite with a built-in alert that works on any phone.
+
+**Motivation, premium & trust**
+- Done list, streaks with a weekly freeze, a 14-day heat strip, Year in Rem, and an accountability buddy text you send yourself.
+- **Morning Card** (a notification plus a shareable image) and **Focus mode** (just the next three things).
+- Accent themes (Gold, Silver, Rose gold, Emerald), an alarm sound per category, and app lock with private reminders.
+- Missed-alarm report, nightly local backup, backup and restore files, .ics and PDF export, and **Silence everything** for 1–4 hours.
+
 ## Design: Rem Noir
 A quiet, premium, dark-first design language:
 - **Deep black canvas** with charcoal surfaces lit by a fine highlight along their top edge.

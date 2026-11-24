@@ -72,7 +72,7 @@ class Notifier(private val context: Context) {
         val builder = NotificationCompat.Builder(context, if (isAlarm) CHANNEL_ALARMS else CHANNEL_REMINDERS)
             .setSmallIcon(R.drawable.ic_notification)
             .setColor(0xFFD9BC83.toInt())
-            .setContentTitle(titleOverride ?: if (reminder.isPrivate) "Private reminder" else reminder.title)
+            .setContentTitle(titleOverride ?: if (reminder.isPrivate) "Private reminder" else reminder.title + choreSuffix(reminder))
             .setContentText(subtitle)
             .setStyle(NotificationCompat.BigTextStyle().bigText(listOf(subtitle, reminder.notes).filter { it.isNotBlank() }.joinToString("\n")))
             .setPriority(NotificationCompat.PRIORITY_HIGH)
@@ -97,6 +97,14 @@ class Notifier(private val context: Context) {
     }
 
     fun cancel(reminderId: Long) = manager.cancel(reminderId.toInt())
+
+    /** Rotating family chores say whose turn it is. */
+    private fun choreSuffix(r: Reminder): String {
+        if (r.kind != app.rem.core.model.Kind.CHORE) return ""
+        val members = r.extras["members"].orEmpty().split(',').map { it.trim() }.filter { it.isNotEmpty() }
+        val start = r.extras["rotationStart"]?.let { runCatching { java.time.LocalDate.parse(it) }.getOrNull() } ?: return ""
+        return app.rem.core.insights.Rotation.assignee(members, start, r.dueAt?.toLocalDate() ?: java.time.LocalDate.now())?.let { " \u00B7 $it's turn" } ?: ""
+    }
 
     private fun action(action: String, id: Long, slot: Int, snooze: SnoozePreset? = null): PendingIntent {
         val intent = Intent(context, ActionReceiver::class.java)

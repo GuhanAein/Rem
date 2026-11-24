@@ -126,7 +126,9 @@ class AlarmActivity : ComponentActivity() {
     }
 
     private fun startRinging() {
-        val uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM) ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
+        // Your chosen sound for this category, or the phone's alarm sound.
+        val custom = reminder?.category?.let { container.settings.value.sounds[it] }?.let(android.net.Uri::parse)
+        val uri = custom ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM) ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
         ringtone = RingtoneManager.getRingtone(this, uri)?.apply {
             audioAttributes = AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ALARM).setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build()
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) isLooping = true
