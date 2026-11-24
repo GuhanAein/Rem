@@ -51,6 +51,10 @@ class AlarmReceiver : BroadcastReceiver() {
             // If Android refuses (e.g. an inexact fallback alarm), fall back to the alarm notification.
             runCatching { RingService.start(context, id, isNag = nagCount > 0) }
                 .onFailure { c.notifier.show(reminder, isNag = nagCount > 0, ring = true) }
+        } else if (reminder.kind == app.rem.core.model.Kind.SHOPPING_LIST) {
+            reminder.extras[app.rem.data.SpacesService.LIST_ID]?.toLongOrNull()?.let { c.spaces.listText(it) }?.let { text ->
+                c.notifier.show(reminder, isNag = false, ring = false, textOverride = text.substringAfter('\n'))
+            }
         } else {
             c.notifier.show(reminder, isNag = nagCount > 0, ring = isDue)
         }

@@ -65,6 +65,7 @@ class Notifier(private val context: Context) {
         val subtitle = textOverride ?: buildString {
             if (isNag) append("Still waiting · ")
             if (!ring) append("Coming up · ")
+            reminder.waitingOn?.takeIf { reminder.workStatus == "WAITING" }?.let { append("Follow up with ").append(it).append(" · ") }
             append(describeDue(reminder.dueAt))
             reminder.amount?.let { append(" · ").append(it) }
             reminder.firstStep?.let { append("\nFirst step: ").append(it) }

@@ -52,7 +52,8 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
         completedToday,
         now,
         combine(smartList, selectedCategory, needsSetup) { l, c, s -> Triple(l, c, s) },
-    ) { active, done, n, (d, c, s) ->
+    ) { all, done, n, (d, c, s) ->
+        val active = all.filter { it.space == app.rem.core.model.Space.PERSONAL && it.kind != app.rem.core.model.Kind.SHOPPING_LIST }
         // Recurring reminders completed today stay active, so only count real completions.
         val completions = done.filter { it.completedAt != null }
         buildHomeState(active, completions, n, d, c, s)

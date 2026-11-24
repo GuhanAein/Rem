@@ -38,6 +38,7 @@ class AppContainer(context: Context, val clock: Clock = Clock.systemDefaultZone(
             app.rem.triggers.Triggers.sync(appContext)
         },
     )
+    val spaces = app.rem.data.SpacesService(appContext, this.database, service, repository, settings, clock)
 }
 
 class RemApplication : Application() {

@@ -32,12 +32,40 @@ import java.time.ZoneId
 object DailyJobs {
     const val ACTION_MORNING = "app.rem.daily.MORNING"
     const val ACTION_NIGHTLY = "app.rem.daily.NIGHTLY"
+    const val ACTION_WORK_START = "app.rem.daily.WORK_START"
+    const val ACTION_WORK_END = "app.rem.daily.WORK_END"
+    const val ACTION_WRAP_UP = "app.rem.daily.WRAP_UP"
     private const val CHANNEL = "daily"
 
     fun schedule(context: Context) {
         val s = context.container.settings.value
         set(context, ACTION_MORNING, s.morningCardTime, 9101)
         set(context, ACTION_NIGHTLY, LocalTime.of(2, 30), 9102)
+        set(context, ACTION_WORK_START, s.workHours.start, 9103)
+        set(context, ACTION_WORK_END, s.workHours.end.minusMinutes(15), 9104)
+    }
+
+    internal suspend fun runWorkStart(context: Context) {
+        val c = context.container
+        if (java.time.LocalDate.now().dayOfWeek !in c.settings.value.workHours.days) return
+        val (due, waiting) = c.spaces.workAgenda()
+        if (due + waiting == 0) return
+        c.spaces.post(9301, "Good morning \u00B7 work", listOfNotNull(
+            "$due task${if (due == 1) "" else "s"} for today".takeIf { due > 0 },
+            "$waiting waiting on others".takeIf { waiting > 0 },
+        ).joinToString(" \u00B7 "), app.rem.ui.MainActivity.ACTION_WORK)
+    }
+
+    internal suspend fun runWorkEnd(context: Context) {
+        val c = context.container
+        if (java.time.LocalDate.now().dayOfWeek !in c.settings.value.workHours.days) return
+        val (due, _) = c.spaces.workAgenda()
+        if (due == 0) return
+        val wrap = PendingIntent.getBroadcast(
+            context, 9105, Intent(context, DailyReceiver::class.java).setAction(ACTION_WRAP_UP),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+        c.spaces.post(9302, "Wrapping up?", "$due work task${if (due == 1) "" else "s"} still open. Move them to tomorrow morning?", app.rem.ui.MainActivity.ACTION_WORK, "Move to tomorrow" to wrap)
     }
 
     private fun set(context: Context, action: String, at: LocalTime, code: Int) {
@@ -87,6 +115,7 @@ object DailyJobs {
 
     internal suspend fun runMorning(context: Context) {
         val c = context.container
+        runCatching { c.spaces.wishlistNudges() }
         if (!c.settings.value.morningCardEnabled || !c.notifier.canPost()) return
         val m = morning(context)
         if (m.isEmpty) return
@@ -148,6 +177,7 @@ object DailyJobs {
         val c = context.container
         if (c.settings.value.nightlyBackup) runCatching { Backup.nightly(context) }
         c.database.fired().prune(System.currentTimeMillis() - 60L * 24 * 3600 * 1000)
+        c.spaces.restockStaples()
         c.service.rescheduleAll()
     }
 
@@ -165,6 +195,12 @@ class DailyReceiver : BroadcastReceiver() {
                 when (intent.action) {
                     DailyJobs.ACTION_MORNING -> DailyJobs.runMorning(context)
                     DailyJobs.ACTION_NIGHTLY -> DailyJobs.runNightly(context)
+                    DailyJobs.ACTION_WORK_START -> DailyJobs.runWorkStart(context)
+                    DailyJobs.ACTION_WORK_END -> DailyJobs.runWorkEnd(context)
+                    DailyJobs.ACTION_WRAP_UP -> {
+                        context.container.spaces.wrapUp()
+                        androidx.core.app.NotificationManagerCompat.from(context).cancel(9302)
+                    }
                 }
             } finally {
                 DailyJobs.schedule(context)

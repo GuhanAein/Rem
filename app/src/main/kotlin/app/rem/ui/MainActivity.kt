@@ -109,6 +109,9 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
         const val ACTION_QUICK_ADD = "app.rem.action.QUICK_ADD"
         const val ACTION_VOICE = "app.rem.action.VOICE"
         const val ACTION_MORNING = "app.rem.action.MORNING"
+        const val ACTION_SHOPPING = "app.rem.action.SHOPPING"
+        const val ACTION_WISHLIST = "app.rem.action.WISHLIST"
+        const val ACTION_WORK = "app.rem.action.WORK"
     }
 }
 

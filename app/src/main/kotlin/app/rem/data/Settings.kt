@@ -32,6 +32,11 @@ data class AppSettings(
     val accountabilityPhone: String = "",
     /** Custom ringtone URI per category (alarm-style reminders). */
     val sounds: Map<Category, String> = emptyMap(),
+    val workHours: app.rem.core.spaces.WorkHours = app.rem.core.spaces.WorkHours.DEFAULT,
+    val respectWorkHours: Boolean = true,
+    /** Day of month you get paid, for wishlist budgeting. */
+    val payday: Int? = null,
+    val saleDates: List<java.time.LocalDate> = emptyList(),
 ) {
     fun panicActive(now: Instant): Boolean = panicUntil?.isAfter(now) == true
 }
@@ -65,6 +70,10 @@ class Settings(context: Context) {
         accountabilityName = prefs.getString("buddyName", "").orEmpty(),
         accountabilityPhone = prefs.getString("buddyPhone", "").orEmpty(),
         sounds = Category.entries.mapNotNull { c -> prefs.getString("sound_${c.name}", null)?.let { c to it } }.toMap(),
+        workHours = app.rem.core.spaces.WorkHours.decode(prefs.getString("workHours", null)) ?: app.rem.core.spaces.WorkHours.DEFAULT,
+        respectWorkHours = prefs.getBoolean("respectWorkHours", true),
+        payday = prefs.getInt("payday", 0).takeIf { it in 1..31 },
+        saleDates = prefs.getString("saleDates", "").orEmpty().split(',').mapNotNull { runCatching { java.time.LocalDate.parse(it) }.getOrNull() },
     )
 
     private fun write(s: AppSettings) {
@@ -84,6 +93,10 @@ class Settings(context: Context) {
             putString("buddyName", s.accountabilityName)
             putString("buddyPhone", s.accountabilityPhone)
             Category.entries.forEach { c -> s.sounds[c]?.let { putString("sound_${c.name}", it) } ?: remove("sound_${c.name}") }
+            putString("workHours", s.workHours.encode())
+            putBoolean("respectWorkHours", s.respectWorkHours)
+            putInt("payday", s.payday ?: 0)
+            putString("saleDates", s.saleDates.joinToString(","))
         }.apply()
     }
 

@@ -36,6 +36,18 @@ object Backup {
             JSONObject().put("id", p.id).put("name", p.name).put("latitude", p.latitude).put("longitude", p.longitude)
                 .put("radiusMeters", p.radiusMeters.toDouble()).put("isHome", p.isHome)
         }))
+        root.put("shoppingLists", JSONArray(db.shopping().lists().map { l -> JSONObject().put("id", l.id).put("name", l.name).put("sortOrder", l.sortOrder).put("remindWhenLong", l.remindWhenLong) }))
+        root.put("shoppingItems", JSONArray(db.shopping().allItems().map { i ->
+            JSONObject().put("listId", i.listId).put("name", i.name).put("quantity", i.quantity ?: JSONObject.NULL).put("unit", i.unit ?: JSONObject.NULL)
+                .put("aisle", i.aisle).put("price", i.price ?: JSONObject.NULL).put("note", i.note).put("checked", i.checked)
+                .put("everyDays", i.everyDays ?: JSONObject.NULL).put("lastBought", i.lastBought ?: JSONObject.NULL).put("runningLow", i.runningLow).put("timesBought", i.timesBought)
+        }))
+        root.put("wishes", JSONArray(db.wishes().all().map { w ->
+            JSONObject().put("title", w.title).put("url", w.url ?: JSONObject.NULL).put("photo", w.photo ?: JSONObject.NULL).put("price", w.price ?: JSONObject.NULL)
+                .put("targetPrice", w.targetPrice ?: JSONObject.NULL).put("saved", w.saved).put("priority", w.priority).put("notes", w.notes)
+                .put("occasionDate", w.occasionDate ?: JSONObject.NULL).put("status", w.status).put("addedOn", w.addedOn).put("askOn", w.askOn ?: JSONObject.NULL)
+        }))
+        root.put("projects", JSONArray(db.projects().all().map { p -> JSONObject().put("id", p.id).put("name", p.name).put("color", p.color) }))
         root.put("log", JSONArray(db.log().all().take(5000).map { l ->
             JSONObject().put("reminderId", l.reminderId).put("title", l.title).put("category", l.category).put("at", l.at).put("type", l.type).put("minutes", l.minutes)
         }))
@@ -67,6 +79,39 @@ object Backup {
             for (i in 0 until arr.length()) {
                 val o = arr.getJSONObject(i)
                 c.database.places().upsert(PlaceEntity(0, o.getString("name"), o.getDouble("latitude"), o.getDouble("longitude"), o.getDouble("radiusMeters").toFloat(), o.getBoolean("isHome")))
+            }
+        }
+        // Lists keep their items; projects keep their tasks (ids are remapped).
+        val listIds = mutableMapOf<Long, Long>()
+        root.optJSONArray("shoppingLists")?.let { arr ->
+            for (i in 0 until arr.length()) {
+                val o = arr.getJSONObject(i)
+                listIds[o.getLong("id")] = c.database.shopping().upsertList(app.rem.data.ShoppingListEntity(name = o.getString("name"), sortOrder = o.optInt("sortOrder"), remindWhenLong = o.optBoolean("remindWhenLong", true)))
+            }
+        }
+        root.optJSONArray("shoppingItems")?.let { arr ->
+            for (i in 0 until arr.length()) {
+                val o = arr.getJSONObject(i)
+                val list = listIds[o.getLong("listId")] ?: continue
+                c.database.shopping().upsertItem(
+                    app.rem.data.ShoppingItemEntity(0, list, o.getString("name"), o.optDoubleOrNull("quantity"), o.optStringOrNull("unit"), o.optString("aisle", "OTHER"),
+                        o.optDoubleOrNull("price"), o.optString("note"), o.optBoolean("checked"), o.optIntOrNull("everyDays"), o.optStringOrNull("lastBought"), o.optBoolean("runningLow"), o.optInt("timesBought")),
+                )
+            }
+        }
+        root.optJSONArray("wishes")?.let { arr ->
+            for (i in 0 until arr.length()) {
+                val o = arr.getJSONObject(i)
+                c.database.wishes().upsert(
+                    app.rem.data.WishEntity(0, o.getString("title"), o.optStringOrNull("url"), o.optStringOrNull("photo"), o.optDoubleOrNull("price"), o.optDoubleOrNull("targetPrice"),
+                        o.optDouble("saved", 0.0), o.optInt("priority"), o.optString("notes"), null, o.optStringOrNull("occasionDate"), o.optString("status", "WANTED"), o.optString("addedOn", LocalDate.now().toString()), o.optStringOrNull("askOn")),
+                )
+            }
+        }
+        root.optJSONArray("projects")?.let { arr ->
+            for (i in 0 until arr.length()) {
+                val o = arr.getJSONObject(i)
+                c.database.projects().upsert(app.rem.data.ProjectEntity(name = o.getString("name"), color = o.optLong("color", 0xFFB9C3F5)))
             }
         }
         return restored
@@ -117,6 +162,7 @@ object Backup {
         .put("kind", kind).put("window", window ?: JSONObject.NULL).put("randomTimes", randomTimes ?: JSONObject.NULL)
         .put("trigger", trigger ?: JSONObject.NULL).put("followUp", followUp ?: JSONObject.NULL).put("firstStep", firstStep ?: JSONObject.NULL)
         .put("isPrivate", isPrivate).put("extras", extras)
+        .put("space", space).put("workStatus", workStatus ?: JSONObject.NULL).put("waitingOn", waitingOn ?: JSONObject.NULL)
 
     private fun JSONObject.toReminderEntity() = ReminderEntity(
         id = 0, title = getString("title"), notes = optString("notes"), category = optString("category", "TASK"),
@@ -127,8 +173,10 @@ object Backup {
         kind = optString("kind", "STANDARD"), window = optStringOrNull("window"), randomTimes = optStringOrNull("randomTimes"),
         trigger = optStringOrNull("trigger"), followUp = optStringOrNull("followUp"), firstStep = optStringOrNull("firstStep"),
         isPrivate = optBoolean("isPrivate"), personId = null, extras = optString("extras", "{}"),
+        space = optString("space", "PERSONAL"), workStatus = optStringOrNull("workStatus"), waitingOn = optStringOrNull("waitingOn"),
     )
 
     private fun JSONObject.optStringOrNull(k: String): String? = if (isNull(k) || !has(k)) null else optString(k)
     private fun JSONObject.optIntOrNull(k: String): Int? = if (isNull(k) || !has(k)) null else optInt(k)
+    private fun JSONObject.optDoubleOrNull(k: String): Double? = if (isNull(k) || !has(k)) null else optDouble(k)
 }

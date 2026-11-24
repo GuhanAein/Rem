@@ -33,4 +33,22 @@ class MigrationTest {
             assertEquals(0, c.getInt(3))
         }
     }
+
+    @Test fun v2UpgradesToV3WithSpaces() {
+        helper.createDatabase("migrate3.db", 2).apply {
+            execSQL(
+                "INSERT INTO reminders (id, title, notes, category, priority, dueAt, recurrence, alertStyle, alertOffsets, nagMinutes, amount, status, snoozedUntil, occurrenceCount, createdAt, completedAt, kind, isPrivate, extras) " +
+                    "VALUES (1, 'Standup', '', 'WORK', 'NONE', '2026-12-01T10:00:00', NULL, 'NOTIFICATION', '0', NULL, NULL, 'ACTIVE', NULL, 0, 0, NULL, 'STANDARD', 0, '{}')",
+            )
+            close()
+        }
+        val db = helper.runMigrationsAndValidate("migrate3.db", 3, true, RemDatabase.MIGRATION_2_3)
+        db.query("SELECT title, space FROM reminders WHERE id = 1").use { c ->
+            assertTrue(c.moveToFirst())
+            assertEquals("Standup", c.getString(0))
+            assertEquals("PERSONAL", c.getString(1))
+        }
+        db.execSQL("INSERT INTO shopping_lists (name, sortOrder, remindWhenLong) VALUES ('Groceries', 0, 1)")
+        db.execSQL("INSERT INTO wishes (title, saved, priority, notes, status, addedOn) VALUES ('Headphones', 0, 0, '', 'WANTED', '2026-11-24')")
+    }
 }

@@ -48,6 +48,11 @@ data class ReminderEntity(
     @ColumnInfo(defaultValue = "0") val isPrivate: Boolean = false,
     val personId: Long? = null,
     @ColumnInfo(defaultValue = "{}") val extras: String = "{}",
+    // --- v3 ---
+    @ColumnInfo(defaultValue = "PERSONAL") val space: String = "PERSONAL",
+    val projectId: Long? = null,
+    val workStatus: String? = null,
+    val waitingOn: String? = null,
 )
 
 internal fun encodeExtras(map: Map<String, String>): String = JSONObject(map as Map<*, *>).toString()
@@ -87,6 +92,10 @@ fun ReminderEntity.toModel() = Reminder(
     isPrivate = isPrivate,
     personId = personId,
     extras = decodeExtras(extras),
+    space = runCatching { app.rem.core.model.Space.valueOf(space) }.getOrDefault(app.rem.core.model.Space.PERSONAL),
+    projectId = projectId,
+    workStatus = workStatus,
+    waitingOn = waitingOn,
 )
 
 fun Reminder.toEntity() = ReminderEntity(
@@ -115,4 +124,8 @@ fun Reminder.toEntity() = ReminderEntity(
     isPrivate = isPrivate,
     personId = personId,
     extras = encodeExtras(extras),
+    space = space.name,
+    projectId = projectId,
+    workStatus = workStatus,
+    waitingOn = waitingOn?.takeIf { it.isNotBlank() },
 )
